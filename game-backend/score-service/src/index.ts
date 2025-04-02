@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import app from './app';
 import { env } from './config/env';
+import './config/redis';
 
 const startServer = async () => {
   try {

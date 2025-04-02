@@ -28,8 +28,15 @@ export const swaggerSpec = swaggerJSDoc({
             updatedAt: { type: 'string', format: 'date-time' },
           },
         },
+        LeaderboardEntry: {
+          type: 'object',
+          properties: {
+            playerId: { type: 'string' },
+            score: { type: 'number' },
+          },
+        },
       },
-    },
+    },    
   },
   apis: ['src/routes/*.ts'],
 });

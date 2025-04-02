@@ -40,6 +40,12 @@ router.post('/', validate(createScoreSchema), controller.createScore);
  *     responses:
  *       200:
  *         description: List of top scores
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/LeaderboardEntry'
  */
 router.get('/top', controller.getTopScores);
 
