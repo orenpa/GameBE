@@ -17,7 +17,7 @@ export class LeaderboardService {
         },
       },
       {
-        $sort: { totalScore: -1 },
+         $sort: { totalScore: -1, _id: 1 }  // Secondary sort by playerId ascending
       },
       {
         $limit: limit,
