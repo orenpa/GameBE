@@ -8,12 +8,16 @@ export class LeaderboardController {
     this.leaderboardService = new LeaderboardService();
   }
 
-  getTopPlayers = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  getTopPlayers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const leaderboard = await this.leaderboardService.getTopPlayers();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+  
+      const leaderboard = await this.leaderboardService.getTopPlayers(page, limit);
       res.status(200).json(leaderboard);
     } catch (error) {
       next(error);
     }
   };
+  
 }

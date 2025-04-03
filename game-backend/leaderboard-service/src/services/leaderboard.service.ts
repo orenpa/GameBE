@@ -8,7 +8,9 @@ export interface LeaderboardEntry {
 }
 
 export class LeaderboardService {
-  async getTopPlayers(limit = 10): Promise<LeaderboardEntry[]> {
+  async getTopPlayers(page = 1, limit = 10): Promise<LeaderboardEntry[]> {
+    const skip = (page - 1) * limit;
+  
     const result = await Score.aggregate<LeaderboardEntry>([
       {
         $group: {
@@ -17,11 +19,10 @@ export class LeaderboardService {
         },
       },
       {
-         $sort: { totalScore: -1, _id: 1 }  // Secondary sort by playerId ascending
+        $sort: { totalScore: -1, _id: 1 },
       },
-      {
-        $limit: limit,
-      },
+      { $skip: skip },
+      { $limit: limit },
       {
         $project: {
           _id: 0,
@@ -30,7 +31,7 @@ export class LeaderboardService {
         },
       },
     ]).toArray();
-
+  
     return result;
-  }
+  }  
 }
