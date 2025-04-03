@@ -1,18 +1,29 @@
 import { LogModel } from '../models/log.model';
+import { TokenBucketRateLimiter } from '../utils/rateLimiter';
+import { Kafka } from 'kafkajs';
+import { env } from '../config/env'; // assuming you have access to env.KAFKA_RETRY_TOPIC
 
 interface LogInput {
   playerId: string;
   logData: string;
 }
-
 export class LogService {
   private buffer: LogInput[] = [];
   private readonly batchSize = 10;
   private readonly flushInterval = 2000; // ms
   private flushTimer: NodeJS.Timeout;
+  private kafkaProducer = new Kafka({
+    clientId: 'log-worker',
+    brokers: [env.kafkaBroker],
+  }).producer();
+  
+
+  private readonly rateLimiter = new TokenBucketRateLimiter(20, 20); 
 
   constructor() {
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
+    this.kafkaProducer.connect();
+
   }
 
   async saveLog(log: LogInput): Promise<void> {
@@ -24,27 +35,38 @@ export class LogService {
 
   private async flush(): Promise<void> {
     if (this.buffer.length === 0) return;
-  
+
     const batch = [...this.buffer];
     this.buffer = [];
-  
+
     const maxRetries = 3;
     let attempt = 0;
-  
-    while (attempt < maxRetries) {
+
+    try {
+      await this.rateLimiter.wait();
+      await LogModel.insertMany(batch);
+      console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
+    } catch (error) {
+      console.error(`❌ Failed to flush batch. Sending to retry queue.`, error);
+    
+      const retryMessages = batch.map((log) => ({
+        key: log.playerId,
+        value: JSON.stringify({ ...log, retryCount: 1 }),
+      }));
+    
       try {
-        await LogModel.insertMany(batch);
-        console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
-        return;
-      } catch (error) {
-        attempt++;
-        const delay = Math.pow(2, attempt) * 100; // 200ms, 400ms, 800ms
-        console.error(`❌ Flush attempt ${attempt} failed. Retrying in ${delay}ms...`, error);
-  
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        await this.kafkaProducer.send({
+          topic: env.kafkaRetryTopic,
+          messages: retryMessages,
+        });
+    
+        console.log(`🔁 Sent ${retryMessages.length} logs to retry queue`);
+      } catch (sendErr) {
+        console.error('❌ Failed to send logs to retry topic:', sendErr);
       }
     }
-  
+    
+
     console.error(`❌ Failed to flush ${batch.length} logs after ${maxRetries} attempts.`);
   }
 
