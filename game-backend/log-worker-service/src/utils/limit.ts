@@ -1,4 +1,4 @@
 import pLimit from 'p-limit';
+import { env } from '../config/env';
 
-// Allow up to 3 concurrent writes
-export const mongoWriteLimit = pLimit(3);
+export const mongoWriteLimit = pLimit(env.maxConcurrentWrites);
