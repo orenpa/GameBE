@@ -16,4 +16,5 @@ export const env = {
   kafkaTopic: process.env.KAFKA_TOPIC,
   mongoUri: process.env.MONGO_URI,
   consumerGroup: process.env.KAFKA_CONSUMER_GROUP || 'log-consumer-group',
+  kafkaRetryTopic: process.env.KAFKA_RETRY_TOPIC || 'log-retries',
 };
