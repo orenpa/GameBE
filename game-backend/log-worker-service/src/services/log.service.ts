@@ -2,7 +2,7 @@ import { LogModel } from '../models/log.model';
 import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
 import { Kafka } from 'kafkajs';
 import { env } from '../config/env'; 
-import { mongoWriteLimit } from '../utils/limit';
+import { limitConcurrency } from '../utils/limit';
 
 interface LogInput {
   playerId: string;
@@ -47,10 +47,11 @@ export class LogService {
       // Wait for rate limiter token (distributed across all workers)
       await this.rateLimiter.wait();
       
-      // Write to MongoDB with concurrency limit
-      await mongoWriteLimit(() =>
-        LogModel.insertMany(batch)
-      );
+      // Use the distributed concurrency limiter to write to MongoDB
+      await limitConcurrency(async () => {
+        await LogModel.insertMany(batch);
+      });
+      
       console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
     } catch (error) {
       console.error(`❌ Failed to flush batch. Sending to retry queue.`, error);

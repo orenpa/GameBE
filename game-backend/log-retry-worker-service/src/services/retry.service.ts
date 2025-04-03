@@ -1,7 +1,7 @@
 import { Kafka } from 'kafkajs';
 import { env } from '../config/env';
 import { LogModel } from '../models/log.model';
-import { mongoWriteLimit } from '../utils/limit';
+import { limitConcurrency } from '../utils/limit';
 import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
 
 
@@ -37,15 +37,14 @@ export class RetryService {
       // Wait for rate limiter token (distributed across all worker instances)
       await this.rateLimiter.wait();
       
-      // Write to MongoDB with concurrency limit
-      await mongoWriteLimit(() =>
-        LogModel.create({
+      // Use the distributed concurrency limiter to write to MongoDB
+      await limitConcurrency(async () => {
+        await LogModel.create({
           playerId: log.playerId,
           logData: log.logData,
-        })
-      );
+        });
+      });
       
-
       console.log(`✅ Retry succeeded for player ${log.playerId}`);
     } catch (error) {
       console.warn(`⚠️ Retry failed (count: ${retryCount})`, error);
