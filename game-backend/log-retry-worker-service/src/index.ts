@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { env } from './config/env';
 import { RetryConsumer } from './consumers/retry.consumer';
+import redis from './config/redis';
 
 const consumer = new RetryConsumer();
 
@@ -21,6 +22,7 @@ const shutdown = async () => {
   console.log('\n🛑 Shutting down log-retry-worker...');
   await consumer.disconnect();
   await mongoose.disconnect();
+  await redis.disconnect();
   console.log('✅ Shutdown complete. Goodbye 👋');
   process.exit(0);
 };

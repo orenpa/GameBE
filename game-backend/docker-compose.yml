@@ -144,9 +144,12 @@ services:
       - KAFKA_DLQ_TOPIC=log-dlq
       - KAFKA_CONSUMER_GROUP=retry-group
       - MAX_RETRY_ATTEMPTS=3
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   log-dlq-worker:
     build: ./dlq-service

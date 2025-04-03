@@ -2,7 +2,7 @@ import { Kafka } from 'kafkajs';
 import { env } from '../config/env';
 import { LogModel } from '../models/log.model';
 import { mongoWriteLimit } from '../utils/limit';
-import { TokenBucketRateLimiter } from '../utils/rateLimiter';
+import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
 
 
 interface RetryLog {
@@ -13,7 +13,12 @@ interface RetryLog {
 
 export class RetryService {
   private producer;
-  private rateLimiter = new TokenBucketRateLimiter(env.maxWriteRatePerSecond, env.maxWriteRatePerSecond);
+  // Use Redis-based rate limiter for distributed rate limiting
+  private rateLimiter = new RedisTokenBucketRateLimiter(
+    'retry-mongodb-writes', 
+    env.maxWriteRatePerSecond, 
+    env.maxWriteRatePerSecond
+  );
 
   constructor() {
     const kafka = new Kafka({
@@ -29,7 +34,10 @@ export class RetryService {
     const retryCount = log.retryCount || 0;
 
     try {
+      // Wait for rate limiter token (distributed across all worker instances)
       await this.rateLimiter.wait();
+      
+      // Write to MongoDB with concurrency limit
       await mongoWriteLimit(() =>
         LogModel.create({
           playerId: log.playerId,
