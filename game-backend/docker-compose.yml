@@ -109,9 +109,12 @@ services:
       - KAFKA_CONSUMER_GROUP=high-priority-log-consumer-group
       - MAX_CONCURRENT_WRITES=5
       - MAX_WRITE_RATE_PER_SECOND=20
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   low-priority-log-worker:
     build: ./log-worker-service
@@ -124,9 +127,12 @@ services:
       - KAFKA_CONSUMER_GROUP=low-priority-log-consumer-group
       - MAX_CONCURRENT_WRITES=3
       - MAX_WRITE_RATE_PER_SECOND=10
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   log-retry-worker:
     build: ./log-retry-worker-service

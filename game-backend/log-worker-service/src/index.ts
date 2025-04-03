@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { env } from './config/env';
 import { LogConsumer } from './consumers/log.consumer';
 import { LogService } from './services/log.service';
+import redis from './config/redis';
 
 
 
@@ -29,6 +30,7 @@ const shutdown = async () => {
   await consumer.disconnect?.(); // if implemented later
   await logService.shutdown();
   await mongoose.disconnect();
+  await redis.disconnect();
   console.log('✅ Cleanup complete. Goodbye 👋');
   process.exit(0);
 };
