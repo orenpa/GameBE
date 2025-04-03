@@ -1,11 +1,6 @@
 import { Kafka, Producer } from 'kafkajs';
 import { env } from '../config/env';
 
-export interface LogMessage {
-  playerId: string;
-  logData: string;
-}
-
 export class KafkaProducer {
   private producer: Producer;
 
@@ -20,21 +15,16 @@ export class KafkaProducer {
   }
 
   private async connect() {
-    try {
-      await this.producer.connect();
-      console.log('✅ Kafka producer connected');
-    } catch (error) {
-      console.error('❌ Kafka producer connection failed:', error);
-    }
+    await this.producer.connect();
   }
 
-  async sendLog(message: LogMessage): Promise<void> {
+  public async sendLogToTopic(topic: string, log: { playerId: string; logData: string; logType?: string }) {
     await this.producer.send({
-      topic: env.kafkaTopic,
+      topic,
       messages: [
         {
-          key: message.playerId,
-          value: JSON.stringify(message),
+          key: log.playerId,
+          value: JSON.stringify(log),
         },
       ],
     });

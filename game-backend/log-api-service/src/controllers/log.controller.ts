@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { KafkaProducer } from '../producers/kafka.producer';
+import { evaluateLogPriority } from '../utils/priorityEvaluator';
+import { LogPriority } from '../constants/priority.enum';
+import { env } from '../config/env';
 
 export class LogController {
   private producer: KafkaProducer;
@@ -10,14 +13,20 @@ export class LogController {
 
   receiveLog = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { playerId, logData } = req.body;
+      const { playerId, logData, logType } = req.body;
 
       if (!playerId || !logData) {
         res.status(400).json({ message: 'playerId and logData are required' });
         return;
       }
 
-      await this.producer.sendLog({ playerId, logData });
+      const priority = evaluateLogPriority({ playerId, logData, logType });
+      const topic =
+        priority === LogPriority.HIGH
+          ? env.kafkaHighPriorityTopic
+          : env.kafkaLowPriorityTopic;
+
+      await this.producer.sendLogToTopic(topic, { playerId, logData, logType });
 
       res.status(200).json({ message: 'Log received' });
     } catch (error) {

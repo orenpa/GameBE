@@ -3,11 +3,15 @@ import { env } from './config/env';
 import { LogConsumer } from './consumers/log.consumer';
 import { LogService } from './services/log.service';
 
+
+
 const logService = new LogService();
 const consumer = new LogConsumer(logService);
 
 const startWorker = async () => {
   try {
+    await consumer.subscribe(env.kafkaLogTopic);
+    
     console.log('🧠 Connecting to MongoDB...');
     await mongoose.connect(env.mongoUri);
     console.log('✅ Connected to MongoDB');

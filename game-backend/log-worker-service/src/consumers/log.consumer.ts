@@ -17,12 +17,14 @@ export class LogConsumer {
     this.consumer = kafka.consumer({ groupId: env.consumerGroup });
   }
 
-  public async start(): Promise<void> {
+  public async subscribe(topic: string): Promise<void> {
     await this.consumer.connect();
-    console.log('✅ Kafka consumer connected');
+    console.log(`✅ Kafka consumer connected to topic "${topic}"`);
 
-    await this.consumer.subscribe({ topic: env.kafkaTopic, fromBeginning: false });
+    await this.consumer.subscribe({ topic, fromBeginning: false });
+  }
 
+  public async start(): Promise<void> {
     await this.consumer.run({
       eachMessage: async ({ message }) => {
         if (!message.value) return;

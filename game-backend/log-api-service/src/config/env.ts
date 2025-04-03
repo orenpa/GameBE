@@ -1,12 +1,13 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-if (!process.env.KAFKA_BROKER) {
-  throw new Error('❌ KAFKA_BROKER is not defined in .env');
-}
+if (!process.env.KAFKA_BROKER) throw new Error('Missing KAFKA_BROKER');
+if (!process.env.KAFKA_HIGH_PRIORITY_TOPIC) throw new Error('Missing KAFKA_HIGH_PRIORITY_TOPIC');
+if (!process.env.KAFKA_LOW_PRIORITY_TOPIC) throw new Error('Missing KAFKA_LOW_PRIORITY_TOPIC');
 
 export const env = {
-  port: process.env.PORT || 3004,
+  port: parseInt(process.env.PORT || '3004', 10),
   kafkaBroker: process.env.KAFKA_BROKER,
-  kafkaTopic: process.env.KAFKA_TOPIC || 'log-events',
+  kafkaHighPriorityTopic: process.env.KAFKA_HIGH_PRIORITY_TOPIC,
+  kafkaLowPriorityTopic: process.env.KAFKA_LOW_PRIORITY_TOPIC,
 };
