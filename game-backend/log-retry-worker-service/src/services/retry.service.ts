@@ -1,6 +1,8 @@
 import { Kafka } from 'kafkajs';
 import { env } from '../config/env';
 import { LogModel } from '../models/log.model';
+import { mongoWriteLimit } from '../utils/limit';
+import { TokenBucketRateLimiter } from '../utils/rateLimiter';
 
 
 interface RetryLog {
@@ -11,6 +13,7 @@ interface RetryLog {
 
 export class RetryService {
   private producer;
+  private rateLimiter = new TokenBucketRateLimiter(env.maxWriteRatePerSecond, env.maxWriteRatePerSecond);
 
   constructor() {
     const kafka = new Kafka({
@@ -26,11 +29,14 @@ export class RetryService {
     const retryCount = log.retryCount || 0;
 
     try {
-      // Simulate retrying DB insert
-      await LogModel.create({
-        playerId: log.playerId,
-        logData: log.logData,
-      });
+      await this.rateLimiter.wait();
+      await mongoWriteLimit(() =>
+        LogModel.create({
+          playerId: log.playerId,
+          logData: log.logData,
+        })
+      );
+      
 
       console.log(`✅ Retry succeeded for player ${log.playerId}`);
     } catch (error) {
