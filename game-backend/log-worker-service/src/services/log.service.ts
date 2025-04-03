@@ -2,6 +2,7 @@ import { LogModel } from '../models/log.model';
 import { TokenBucketRateLimiter } from '../utils/rateLimiter';
 import { Kafka } from 'kafkajs';
 import { env } from '../config/env'; // assuming you have access to env.KAFKA_RETRY_TOPIC
+import { mongoWriteLimit } from '../utils/limit';
 
 interface LogInput {
   playerId: string;
@@ -44,8 +45,10 @@ export class LogService {
 
     try {
       await this.rateLimiter.wait();
-      await LogModel.insertMany(batch);
-      console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
+      await mongoWriteLimit(() =>
+        LogModel.insertMany(batch)
+      );
+          console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
     } catch (error) {
       console.error(`❌ Failed to flush batch. Sending to retry queue.`, error);
     

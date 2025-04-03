@@ -1,6 +1,7 @@
 import { Kafka } from 'kafkajs';
 import { env } from '../config/env';
 import { LogModel } from '../models/log.model';
+import { mongoWriteLimit } from '../utils/limit';
 
 
 interface RetryLog {
@@ -27,10 +28,13 @@ export class RetryService {
 
     try {
       // Simulate retrying DB insert
-      await LogModel.create({
-        playerId: log.playerId,
-        logData: log.logData,
-      });
+      await mongoWriteLimit(() =>
+        LogModel.create({
+          playerId: log.playerId,
+          logData: log.logData,
+        })
+      );
+      
 
       console.log(`✅ Retry succeeded for player ${log.playerId}`);
     } catch (error) {
