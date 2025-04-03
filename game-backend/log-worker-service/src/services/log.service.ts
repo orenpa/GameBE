@@ -1,7 +1,7 @@
 import { LogModel } from '../models/log.model';
 import { TokenBucketRateLimiter } from '../utils/rateLimiter';
 import { Kafka } from 'kafkajs';
-import { env } from '../config/env'; // assuming you have access to env.KAFKA_RETRY_TOPIC
+import { env } from '../config/env'; 
 import { mongoWriteLimit } from '../utils/limit';
 
 interface LogInput {
@@ -19,7 +19,7 @@ export class LogService {
   }).producer();
   
 
-  private readonly rateLimiter = new TokenBucketRateLimiter(20, 20); 
+  private readonly rateLimiter = new TokenBucketRateLimiter(env.maxWriteRatePerSecond, env.maxWriteRatePerSecond); 
 
   constructor() {
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
