@@ -23,13 +23,13 @@ const controller = new LeaderboardController();
  *         schema:
  *           type: integer
  *         required: false
- *         description: Page number (default: 1)
+ *         description: "Page number (default: 1)"
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *         required: false
- *         description: Number of results per page (default: 10)
+ *         description: "Number of results per page (default: 10)"
  *     responses:
  *       200:
  *         description: List of top players with total scores
