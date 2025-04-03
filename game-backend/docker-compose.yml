@@ -94,9 +94,14 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_HIGH_PRIORITY_TOPIC=log-events-high
       - KAFKA_LOW_PRIORITY_TOPIC=log-events-low
+      - REDIS_URL=redis://redis:6379
+      - LOG_BATCH_SIZE=50
+      - LOG_BATCH_TIMEOUT_MS=5000
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   high-priority-log-worker:
     build: ./log-worker-service

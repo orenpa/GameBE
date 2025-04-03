@@ -1,14 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-import { KafkaProducer } from '../producers/kafka.producer';
 import { evaluateLogPriority } from '../utils/priorityEvaluator';
 import { LogPriority } from '../constants/priority.enum';
-import { env } from '../config/env';
+import { RedisBatchService } from '../services/redis-batch.service';
 
 export class LogController {
-  private producer: KafkaProducer;
+  private batchService: RedisBatchService;
 
   constructor() {
-    this.producer = new KafkaProducer();
+    this.batchService = new RedisBatchService();
   }
 
   receiveLog = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -20,14 +19,18 @@ export class LogController {
         return;
       }
 
+      // Determine priority
       const priority = evaluateLogPriority({ playerId, logData, logType });
-      const topic =
-        priority === LogPriority.HIGH
-          ? env.kafkaHighPriorityTopic
-          : env.kafkaLowPriorityTopic;
+      
+      // Add to Redis batch queue instead of sending directly to Kafka
+      await this.batchService.addLog({ 
+        playerId, 
+        logData, 
+        logType,
+        priority: priority === LogPriority.HIGH ? 'high' : 'low'
+      });
 
-      await this.producer.sendLogToTopic(topic, { playerId, logData, logType });
-
+      // Return immediately to the client
       res.status(200).json({ message: 'Log received' });
     } catch (error) {
       next(error);
