@@ -23,10 +23,10 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -98,17 +98,32 @@ services:
       kafka:
         condition: service_healthy
 
-  log-worker:
+  high-priority-log-worker:
     build: ./log-worker-service
-    container_name: log-worker
+    container_name: high-priority-log-worker
     environment:
       - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/logdb?retryWrites=true&w=majority&appName=Cluster0
       - KAFKA_BROKER=kafka:9092
       - KAFKA_LOG_TOPIC=log-events-high
       - KAFKA_RETRY_TOPIC=log-retries
-      - KAFKA_CONSUMER_GROUP=log-consumer-group
+      - KAFKA_CONSUMER_GROUP=high-priority-log-consumer-group
       - MAX_CONCURRENT_WRITES=5
       - MAX_WRITE_RATE_PER_SECOND=20
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  low-priority-log-worker:
+    build: ./log-worker-service
+    container_name: low-priority-log-worker
+    environment:
+      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/logdb?retryWrites=true&w=majority&appName=Cluster0
+      - KAFKA_BROKER=kafka:9092
+      - KAFKA_LOG_TOPIC=log-events-low
+      - KAFKA_RETRY_TOPIC=log-retries
+      - KAFKA_CONSUMER_GROUP=low-priority-log-consumer-group
+      - MAX_CONCURRENT_WRITES=3
+      - MAX_WRITE_RATE_PER_SECOND=10
     depends_on:
       kafka:
         condition: service_healthy
