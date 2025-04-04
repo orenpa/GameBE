@@ -1,18 +1,18 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { env } from './env';
+import { ERROR_MESSAGES } from '../constants/error.constants';
+import { SERVER_MESSAGES } from '../constants/general.constants';
 
 const redis = createClient({
-  url: process.env.REDIS_URL,
+  url: env.redisUrl,
 });
 
 redis.on('error', (err) => {
-  console.error('❌ Redis connection error:', err);
+  console.error(ERROR_MESSAGES.REDIS.CONNECTION_ERROR, err);
 });
 
 redis.on('connect', () => {
-  console.log('✅ Connected to Redis');
+  console.log(SERVER_MESSAGES.CONNECTED_REDIS);
 });
 
 redis.connect();
