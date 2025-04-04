@@ -23,6 +23,9 @@ export class ScoreService {
           score,
           value: playerId,
         });
+
+        // Publish score update event
+        await this.publishScoreUpdate(playerId, score);
       }
 
       await this.logPublisher.publish({
@@ -65,6 +68,14 @@ export class ScoreService {
         logType: LogType.ERROR,
       });
       throw error;
+    }
+  }
+
+  private async publishScoreUpdate(playerId: string, score: number): Promise<void> {
+    try {
+      await redis.publish('score:updates', JSON.stringify({ playerId, score }));
+    } catch (error) {
+      console.error('Failed to publish score update:', error);
     }
   }
 }

@@ -69,20 +69,21 @@ services:
         condition: service_started
 
   leaderboard-service:
-    build: ./leaderboard-service
+    build:
+      context: ./leaderboard-service
+      dockerfile: Dockerfile
     container_name: leaderboard-service
     ports:
       - "3003:3003"
     environment:
       - PORT=3003
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/scoredb?retryWrites=true&w=majority&appName=Cluster0
+      - MONGO_URI=mongodb://mongodb:27017/leaderboard
+      - REDIS_URL=redis://redis:6379
       - LOG_API_URL=http://log-api-service:3004
-      - KAFKA_BROKER=kafka:9092
     depends_on:
-      kafka:
-        condition: service_healthy
-      log-api-service:
-        condition: service_started
+      - mongodb
+      - redis
+      - log-api-service
 
   log-api-service:
     build: ./log-api-service
