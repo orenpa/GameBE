@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { DB_OPTIONS, PLAYER_SCHEMA } from '../constants/database.constants';
 
 export interface IPlayer extends Document {
   username: string;
@@ -9,12 +10,12 @@ export interface IPlayer extends Document {
 
 const playerSchema = new Schema<IPlayer>(
   {
-    username: {
+    [PLAYER_SCHEMA.FIELDS.USERNAME]: {
       type: String,
       required: true,
       trim: true,
     },
-    email: {
+    [PLAYER_SCHEMA.FIELDS.EMAIL]: {
       type: String,
       required: true,
       unique: true,
@@ -23,9 +24,9 @@ const playerSchema = new Schema<IPlayer>(
     },
   },
   {
-    timestamps: true,
+    timestamps: PLAYER_SCHEMA.OPTIONS.TIMESTAMPS,
   }
 );
 
-const Player = mongoose.model<IPlayer>('Player', playerSchema);
+const Player = mongoose.model<IPlayer>(DB_OPTIONS.MODELS.PLAYER, playerSchema);
 export default Player;

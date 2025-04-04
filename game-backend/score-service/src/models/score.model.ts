@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { DB_OPTIONS, SCORE_SCHEMA } from '../constants/database.constants';
 
 export interface IScore extends Document {
   playerId: string;
@@ -9,19 +10,19 @@ export interface IScore extends Document {
 
 const scoreSchema = new Schema<IScore>(
   {
-    playerId: {
+    [SCORE_SCHEMA.FIELDS.PLAYER_ID]: {
       type: String,
       required: true,
     },
-    score: {
+    [SCORE_SCHEMA.FIELDS.SCORE]: {
       type: Number,
       required: true,
     },
   },
   {
-    timestamps: true,
+    timestamps: SCORE_SCHEMA.OPTIONS.TIMESTAMPS,
   }
 );
 
-const Score = mongoose.model<IScore>('Score', scoreSchema);
+const Score = mongoose.model<IScore>(DB_OPTIONS.MODELS.SCORE, scoreSchema);
 export default Score;
