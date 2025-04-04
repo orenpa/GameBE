@@ -43,10 +43,13 @@ services:
       - LOG_API_URL=http://log-api-service:3004
       - KAFKA_BROKER=kafka:9092
       - KAFKA_RETRY_TOPIC=log-retries
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
       log-api-service:
+        condition: service_started
+      redis:
         condition: service_started
 
   score-service:

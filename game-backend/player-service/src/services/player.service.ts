@@ -1,17 +1,23 @@
 import Player, { IPlayer } from '../models/player.model';
 import { LogPublisher } from '../utils/logPublisher';
+import { CacheService } from './cache.service';
 
 export class PlayerService {
   private logPublisher: LogPublisher;
+  private cacheService: CacheService;
 
   constructor() {
     this.logPublisher = new LogPublisher();
+    this.cacheService = new CacheService();
   }
 
   async createPlayer(data: Partial<IPlayer>): Promise<IPlayer> {
     try {
       const player = new Player(data);
       const saved = await player.save();
+
+      // Cache the new player
+      await this.cacheService.setPlayer(String(saved._id), saved);
 
       await this.logPublisher.publish({
         playerId: String(saved._id),
@@ -32,6 +38,18 @@ export class PlayerService {
   }
 
   async getPlayerById(playerId: string): Promise<IPlayer | null> {
+    // Try to get player from cache first
+    const cachedPlayer = await this.cacheService.getPlayer(playerId);
+    if (cachedPlayer) {
+      await this.logPublisher.publish({
+        playerId,
+        logData: `✅ Retrieved player profile from cache`,
+        logType: 'info',
+      });
+      return cachedPlayer;
+    }
+    
+    // If not in cache, query from database
     const player = await Player.findById(playerId);
   
     if (!player) {
@@ -43,9 +61,12 @@ export class PlayerService {
       return null;
     }
   
+    // Cache the player for future requests
+    await this.cacheService.setPlayer(playerId, player);
+    
     await this.logPublisher.publish({
       playerId,
-      logData: `✅ Retrieved player profile`,
+      logData: `✅ Retrieved player profile from database`,
       logType: 'info',
     });
   
@@ -67,6 +88,9 @@ export class PlayerService {
       });
       return null;
     }
+    
+    // Update the cache with the new player data
+    await this.cacheService.setPlayer(playerId, updatedPlayer);
   
     await this.logPublisher.publish({
       playerId,
@@ -89,6 +113,9 @@ export class PlayerService {
       });
       return null;
     }
+    
+    // Remove the player from cache
+    await this.cacheService.deletePlayer(playerId);
   
     await this.logPublisher.publish({
       playerId,
