@@ -1,14 +1,16 @@
 import dotenv from 'dotenv';
+import { ERROR_MESSAGES } from '../constants/error.constants';
+
 dotenv.config();
 
-if (!process.env.MONGO_URI) throw new Error('❌ MONGO_URI is missing');
-if (!process.env.KAFKA_BROKER) throw new Error('❌ KAFKA_BROKER is missing');
-if (!process.env.KAFKA_RETRY_TOPIC) throw new Error('❌ KAFKA_RETRY_TOPIC is missing');
+if (!process.env.MONGO_URI) throw new Error(ERROR_MESSAGES.ENV.MISSING_MONGO_URI);
+if (!process.env.KAFKA_BROKER) throw new Error(ERROR_MESSAGES.ENV.MISSING_KAFKA_BROKER);
+if (!process.env.KAFKA_RETRY_TOPIC) throw new Error(ERROR_MESSAGES.ENV.MISSING_KAFKA_RETRY_TOPIC);
 if (!process.env.LOG_API_URL) {
-  throw new Error('❌ LOG_API_URL is not defined');
+  throw new Error(ERROR_MESSAGES.ENV.MISSING_LOG_API_URL);
 }
 if (!process.env.REDIS_URL) {
-  throw new Error('❌ REDIS_URL is not defined');
+  throw new Error(ERROR_MESSAGES.ENV.MISSING_REDIS_URL);
 }
 
 export const env = {

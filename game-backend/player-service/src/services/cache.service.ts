@@ -1,13 +1,12 @@
 import redisClient from '../config/redis';
 import { IPlayer } from '../models/player.model';
-
-const CACHE_TTL = 3600; // 1 hour in seconds
-const PLAYER_PREFIX = 'player:';
+import { CACHE } from '../constants/cache.constants';
+import { ERROR_MESSAGES } from '../constants/error.constants';
 
 export class CacheService {
   async getPlayer(playerId: string): Promise<IPlayer | null> {
     try {
-      const cachedPlayer = await redisClient.get(`${PLAYER_PREFIX}${playerId}`);
+      const cachedPlayer = await redisClient.get(`${CACHE.PREFIX.PLAYER}${playerId}`);
       
       if (cachedPlayer) {
         return JSON.parse(cachedPlayer) as IPlayer;
@@ -15,7 +14,7 @@ export class CacheService {
       
       return null;
     } catch (error) {
-      console.error('Redis get error:', error);
+      console.error(ERROR_MESSAGES.REDIS.GET_ERROR, error);
       return null;
     }
   }
@@ -23,31 +22,31 @@ export class CacheService {
   async setPlayer(playerId: string, player: IPlayer): Promise<void> {
     try {
       await redisClient.set(
-        `${PLAYER_PREFIX}${playerId}`,
+        `${CACHE.PREFIX.PLAYER}${playerId}`,
         JSON.stringify(player),
-        { EX: CACHE_TTL }
+        { EX: CACHE.TTL.PLAYER }
       );
     } catch (error) {
-      console.error('Redis set error:', error);
+      console.error(ERROR_MESSAGES.REDIS.SET_ERROR, error);
     }
   }
 
   async deletePlayer(playerId: string): Promise<void> {
     try {
-      await redisClient.del(`${PLAYER_PREFIX}${playerId}`);
+      await redisClient.del(`${CACHE.PREFIX.PLAYER}${playerId}`);
     } catch (error) {
-      console.error('Redis delete error:', error);
+      console.error(ERROR_MESSAGES.REDIS.DELETE_ERROR, error);
     }
   }
 
   async invalidateAllPlayers(): Promise<void> {
     try {
-      const keys = await redisClient.keys(`${PLAYER_PREFIX}*`);
+      const keys = await redisClient.keys(`${CACHE.PREFIX.PLAYER}*`);
       if (keys.length > 0) {
         await redisClient.del(keys);
       }
     } catch (error) {
-      console.error('Redis invalidate all error:', error);
+      console.error(ERROR_MESSAGES.REDIS.INVALIDATE_ALL_ERROR, error);
     }
   }
 } 

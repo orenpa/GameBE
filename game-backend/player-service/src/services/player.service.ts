@@ -1,6 +1,9 @@
 import Player, { IPlayer } from '../models/player.model';
 import { LogPublisher } from '../utils/logPublisher';
 import { CacheService } from './cache.service';
+import { LOG_MESSAGES, LOG_TYPE } from '../constants/log.constants';
+import { GENERAL } from '../constants/general.constants';
+import { DB_OPTIONS } from '../constants/database.constants';
 
 export class PlayerService {
   private logPublisher: LogPublisher;
@@ -21,16 +24,16 @@ export class PlayerService {
 
       await this.logPublisher.publish({
         playerId: String(saved._id),
-        logData: `✅ Player created: ${saved.email}`,
-        logType: 'info',
+        logData: LOG_MESSAGES.PLAYER.CREATED(saved.email),
+        logType: LOG_TYPE.INFO,
       });
 
       return saved;
     } catch (error: any) {
       await this.logPublisher.publish({
-        playerId: 'unknown',
-        logData: `❌ Failed to create player: ${error.message}`,
-        logType: 'error',
+        playerId: GENERAL.UNKNOWN_PLAYER_ID,
+        logData: LOG_MESSAGES.PLAYER.FAILED_CREATE(error.message),
+        logType: LOG_TYPE.ERROR,
       });
 
       throw error;
@@ -43,8 +46,8 @@ export class PlayerService {
     if (cachedPlayer) {
       await this.logPublisher.publish({
         playerId,
-        logData: `✅ Retrieved player profile from cache`,
-        logType: 'info',
+        logData: LOG_MESSAGES.PLAYER.RETRIEVED_CACHE,
+        logType: LOG_TYPE.INFO,
       });
       return cachedPlayer;
     }
@@ -55,8 +58,8 @@ export class PlayerService {
     if (!player) {
       await this.logPublisher.publish({
         playerId,
-        logData: `❌ Player not found`,
-        logType: 'error',
+        logData: LOG_MESSAGES.PLAYER.NOT_FOUND,
+        logType: LOG_TYPE.ERROR,
       });
       return null;
     }
@@ -66,8 +69,8 @@ export class PlayerService {
     
     await this.logPublisher.publish({
       playerId,
-      logData: `✅ Retrieved player profile from database`,
-      logType: 'info',
+      logData: LOG_MESSAGES.PLAYER.RETRIEVED_DB,
+      logType: LOG_TYPE.INFO,
     });
   
     return player;
@@ -75,16 +78,17 @@ export class PlayerService {
   
 
   async updatePlayer(playerId: string, data: Partial<IPlayer>): Promise<IPlayer | null> {
-    const updatedPlayer = await Player.findByIdAndUpdate(playerId, data, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedPlayer = await Player.findByIdAndUpdate(
+      playerId, 
+      data, 
+      DB_OPTIONS.UPDATE.RETURN_NEW
+    );
   
     if (!updatedPlayer) {
       await this.logPublisher.publish({
         playerId,
-        logData: `❌ Failed to update: Player not found`,
-        logType: 'error',
+        logData: LOG_MESSAGES.PLAYER.FAILED_UPDATE,
+        logType: LOG_TYPE.ERROR,
       });
       return null;
     }
@@ -94,8 +98,8 @@ export class PlayerService {
   
     await this.logPublisher.publish({
       playerId,
-      logData: `✅ Updated player profile`,
-      logType: 'info',
+      logData: LOG_MESSAGES.PLAYER.UPDATED,
+      logType: LOG_TYPE.INFO,
     });
   
     return updatedPlayer;
@@ -108,8 +112,8 @@ export class PlayerService {
     if (!deletedPlayer) {
       await this.logPublisher.publish({
         playerId,
-        logData: `❌ Failed to delete: Player not found`,
-        logType: 'error',
+        logData: LOG_MESSAGES.PLAYER.FAILED_DELETE,
+        logType: LOG_TYPE.ERROR,
       });
       return null;
     }
@@ -119,11 +123,10 @@ export class PlayerService {
   
     await this.logPublisher.publish({
       playerId,
-      logData: `🗑️ Deleted player profile`,
-      logType: 'info',
+      logData: LOG_MESSAGES.PLAYER.DELETED,
+      logType: LOG_TYPE.INFO,
     });
   
     return deletedPlayer;
   }
-  
 }
