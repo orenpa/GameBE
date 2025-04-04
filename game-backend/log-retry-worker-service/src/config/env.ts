@@ -15,4 +15,5 @@ export const env = {
   maxRetries: parseInt(process.env.MAX_RETRIES || '3', 10),
   maxConcurrentWrites: parseInt(process.env.MAX_CONCURRENT_WRITES || '3', 10),
   maxWriteRatePerSecond: parseInt(process.env.MAX_WRITE_RATE_PER_SECOND || '20', 10),
+  redisUrl: process.env.REDIS_URL || 'redis://redis:6379',
 };

@@ -94,9 +94,14 @@ services:
       - KAFKA_BROKER=kafka:9092
       - KAFKA_HIGH_PRIORITY_TOPIC=log-events-high
       - KAFKA_LOW_PRIORITY_TOPIC=log-events-low
+      - REDIS_URL=redis://redis:6379
+      - LOG_BATCH_SIZE=50
+      - LOG_BATCH_TIMEOUT_MS=5000
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   high-priority-log-worker:
     build: ./log-worker-service
@@ -109,9 +114,12 @@ services:
       - KAFKA_CONSUMER_GROUP=high-priority-log-consumer-group
       - MAX_CONCURRENT_WRITES=5
       - MAX_WRITE_RATE_PER_SECOND=20
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   low-priority-log-worker:
     build: ./log-worker-service
@@ -124,9 +132,12 @@ services:
       - KAFKA_CONSUMER_GROUP=low-priority-log-consumer-group
       - MAX_CONCURRENT_WRITES=3
       - MAX_WRITE_RATE_PER_SECOND=10
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   log-retry-worker:
     build: ./log-retry-worker-service
@@ -138,9 +149,12 @@ services:
       - KAFKA_DLQ_TOPIC=log-dlq
       - KAFKA_CONSUMER_GROUP=retry-group
       - MAX_RETRY_ATTEMPTS=3
+      - REDIS_URL=redis://redis:6379
     depends_on:
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   log-dlq-worker:
     build: ./dlq-service

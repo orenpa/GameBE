@@ -1,8 +1,8 @@
 import { LogModel } from '../models/log.model';
-import { TokenBucketRateLimiter } from '../utils/rateLimiter';
+import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
 import { Kafka } from 'kafkajs';
 import { env } from '../config/env'; 
-import { mongoWriteLimit } from '../utils/limit';
+import { limitConcurrency } from '../utils/limit';
 
 interface LogInput {
   playerId: string;
@@ -18,13 +18,16 @@ export class LogService {
     brokers: [env.kafkaBroker],
   }).producer();
   
-
-  private readonly rateLimiter = new TokenBucketRateLimiter(env.maxWriteRatePerSecond, env.maxWriteRatePerSecond); 
+  // Use Redis-based rate limiter for distributed rate limiting
+  private readonly rateLimiter = new RedisTokenBucketRateLimiter(
+    'mongodb-writes', 
+    env.maxWriteRatePerSecond, 
+    env.maxWriteRatePerSecond
+  ); 
 
   constructor() {
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
     this.kafkaProducer.connect();
-
   }
 
   async saveLog(log: LogInput): Promise<void> {
@@ -40,15 +43,16 @@ export class LogService {
     const batch = [...this.buffer];
     this.buffer = [];
 
-    const maxRetries = 3;
-    let attempt = 0;
-
     try {
+      // Wait for rate limiter token (distributed across all workers)
       await this.rateLimiter.wait();
-      await mongoWriteLimit(() =>
-        LogModel.insertMany(batch)
-      );
-          console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
+      
+      // Use the distributed concurrency limiter to write to MongoDB
+      await limitConcurrency(async () => {
+        await LogModel.insertMany(batch);
+      });
+      
+      console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
     } catch (error) {
       console.error(`❌ Failed to flush batch. Sending to retry queue.`, error);
     
@@ -68,9 +72,6 @@ export class LogService {
         console.error('❌ Failed to send logs to retry topic:', sendErr);
       }
     }
-    
-
-    console.error(`❌ Failed to flush ${batch.length} logs after ${maxRetries} attempts.`);
   }
 
   async shutdown(): Promise<void> {
