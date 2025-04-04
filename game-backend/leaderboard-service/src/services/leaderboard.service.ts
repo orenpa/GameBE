@@ -73,8 +73,7 @@ export class LeaderboardService {
       await redis.set(
         CACHE_KEYS.LEADERBOARD_PAGE(page, limit),
         JSON.stringify(data),
-        'EX',
-        CACHE_CONFIG.LEADERBOARD_TTL
+        { EX: CACHE_CONFIG.LEADERBOARD_TTL }
       );
     } catch (error) {
       console.error('Cache update error:', error);
