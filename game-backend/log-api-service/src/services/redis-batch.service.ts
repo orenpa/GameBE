@@ -205,14 +205,14 @@ export class RedisBatchService {
       await this.kafkaProducer.sendLogToTopic(kafkaTopic, log);
     }
     
-    console.log(`✅ Worker ${WORKER_ID} sent ${logs.length} logs to Kafka topic ${kafkaTopic}`);
+    console.log(`Worker ${WORKER_ID} sent ${logs.length} logs to Kafka topic ${kafkaTopic}`);
   }
 
   /**
    * Gracefully shuts down the service
    */
   public async shutdown(): Promise<void> {
-    console.log(`🔻 Shutting down Redis batch service for worker ${WORKER_ID}...`);
+    console.log(`Shutting down Redis batch service for worker ${WORKER_ID}...`);
     clearInterval(this.flushTimer);
     
     // Final flush of all logs with lock
@@ -228,6 +228,6 @@ export class RedisBatchService {
       }
     }
     
-    console.log(`✅ Redis batch service shutdown complete for worker ${WORKER_ID}`);
+    console.log(`Redis batch service shutdown complete for worker ${WORKER_ID}`);
   }
 } 

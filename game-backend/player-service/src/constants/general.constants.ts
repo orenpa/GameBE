@@ -7,9 +7,9 @@ export const GENERAL = {
 };
 
 export const SERVER_MESSAGES = {
-  CONNECTING_MONGO: '🔄 Connecting to MongoDB...',
-  CONNECTED_MONGO: '✅ Connected to MongoDB',
-  CONNECTING_REDIS: '🔄 Connecting to Redis...',
-  CONNECTED_REDIS: '✅ Connected to Redis',
-  SERVER_LISTENING: (port: number | string) => `🚀 Player Service listening on port ${port}`,
+  CONNECTING_MONGO: 'Connecting to MongoDB...',
+  CONNECTED_MONGO: 'Connected to MongoDB',
+  CONNECTING_REDIS: 'Connecting to Redis...',
+  CONNECTED_REDIS: 'Connected to Redis',
+  SERVER_LISTENING: (port: number | string) => `Player Service listening on port ${port}`,
 }; 
