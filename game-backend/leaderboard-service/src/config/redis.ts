@@ -1,37 +1,44 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
+import { env } from './env';
+import { REDIS_MESSAGES } from '../constants/redis.constants';
+import { CACHE_CONFIG, CACHE_MESSAGES } from '../constants/cache.constants';
 import { LeaderboardService } from '../services/leaderboard.service';
 
-dotenv.config();
-
 const redis = createClient({
-  url: process.env.REDIS_URL,
+  url: env.redisUrl,
 });
 
 redis.on('error', (err) => {
-  console.error('❌ Redis connection error:', err);
+  console.error(REDIS_MESSAGES.CONNECTION.ERROR, err);
 });
 
 redis.on('connect', () => {
-  console.log('✅ Connected to Redis');
+  console.log(REDIS_MESSAGES.CONNECTION.CONNECTED);
 });
 
+// Create subscriber for cache invalidation
+const subscriber = createClient({
+  url: env.redisUrl,
+});
+
+subscriber.on('error', (err) => {
+  console.error(REDIS_MESSAGES.CONNECTION.SUBSCRIBER_ERROR, err);
+});
+
+// Connect clients
+redis.connect().catch(console.error);
+subscriber.connect().catch(console.error);
+
 // Create a separate subscriber client for Pub/Sub
-const subscriber = redis.duplicate();
+const subscriberClient = redis.duplicate();
 
 // Subscribe to score updates
-subscriber.subscribe('score:updates', (message) => {
-  console.log('Received score update:', message);
+subscriberClient.subscribe(CACHE_CONFIG.SCORE_UPDATE_CHANNEL, (message) => {
+  console.log(CACHE_MESSAGES.SCORE_UPDATE, message);
   // Invalidate cache when score updates are received
   const leaderboardService = new LeaderboardService();
   leaderboardService.invalidateCache().catch(console.error);
 });
 
-subscriber.on('error', (err) => {
-  console.error('❌ Redis subscriber error:', err);
-});
-
-redis.connect();
-subscriber.connect();
-
 export default redis;
+export { subscriber };
