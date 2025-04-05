@@ -1,5 +1,6 @@
 import redis from '../config/redis';
 import { v4 as uuidv4 } from 'uuid';
+import { REDIS_CONFIG, REDIS_PREFIXES, REDIS_MESSAGES } from '../constants/redis.constants';
 
 /**
  * A distributed concurrency limiter that uses Redis to coordinate across multiple service instances.
@@ -18,8 +19,8 @@ export class RedisConcurrencyLimit {
    * @param lockTimeoutSeconds - Maximum time in seconds before a lock is automatically released
    *                            (prevents deadlocks if a process crashes)
    */
-  constructor(resourceName: string, limit: number, lockTimeoutSeconds = 60) {
-    this.key = `semaphore:${resourceName}`;
+  constructor(resourceName: string, limit: number, lockTimeoutSeconds = REDIS_CONFIG.CONCURRENCY.LOCK_TIMEOUT_SECONDS) {
+    this.key = `${REDIS_PREFIXES.SEMAPHORE}${resourceName}`;
     this.limit = limit;
     this.lockTimeout = lockTimeoutSeconds;
   }
@@ -29,33 +30,43 @@ export class RedisConcurrencyLimit {
    * Returns a token if successful, null if the limit is reached.
    */
   public async acquire(): Promise<string | null> {
-    const token = uuidv4();
-    
-    // Get the current count of active operations
-    const count = await redis.sCard(this.key);
-    
-    if (count < this.limit) {
-      // Add the token to the set with an expiry
-      await redis.sAdd(this.key, token);
+    try {
+      const token = uuidv4();
       
-      // Set expiration for automatic cleanup in case of crashes
-      await redis.expire(this.key, this.lockTimeout);
+      // Get the current count of active operations
+      const count = await redis.sCard(this.key);
       
-      // Also set a per-token expiration key to handle individual timeouts
-      await redis.set(`${this.key}:${token}`, '1', { EX: this.lockTimeout });
+      if (count < this.limit) {
+        // Add the token to the set with an expiry
+        await redis.sAdd(this.key, token);
+        
+        // Set expiration for automatic cleanup in case of crashes
+        await redis.expire(this.key, this.lockTimeout);
+        
+        // Also set a per-token expiration key to handle individual timeouts
+        await redis.set(`${this.key}:${token}`, '1', { EX: this.lockTimeout });
+        
+        return token;
+      }
       
-      return token;
+      return null; // No slot available
+    } catch (error) {
+      console.error(REDIS_MESSAGES.CONNECTION.ERROR, error);
+      throw error;
     }
-    
-    return null; // No slot available
   }
 
   /**
    * Releases a previously acquired concurrency slot.
    */
   public async release(token: string): Promise<void> {
-    await redis.sRem(this.key, token);
-    await redis.del(`${this.key}:${token}`);
+    try {
+      await redis.sRem(this.key, token);
+      await redis.del(`${this.key}:${token}`);
+    } catch (error) {
+      console.error(REDIS_MESSAGES.CONNECTION.ERROR, error);
+      throw error;
+    }
   }
   
   /**
@@ -73,7 +84,11 @@ export class RedisConcurrencyLimit {
       
       if (token === null) {
         // No slot available, wait with exponential backoff
-        const waitTime = Math.min(100 * Math.pow(1.5, retryCount), 5000);
+        const waitTime = Math.min(
+          REDIS_CONFIG.CONCURRENCY.RETRY_MULTIPLIER * 
+          Math.pow(REDIS_CONFIG.CONCURRENCY.EXPONENTIAL_BACKOFF_BASE, retryCount),
+          REDIS_CONFIG.CONCURRENCY.MAX_RETRY_DELAY
+        );
         await new Promise(resolve => setTimeout(resolve, waitTime));
         retryCount++;
       }
