@@ -1,5 +1,6 @@
 import redis from '../config/redis';
 import { v4 as uuidv4 } from 'uuid';
+import { REDIS_CONFIG, REDIS_PREFIXES } from '../constants/redis.constants';
 
 /**
  * A distributed concurrency limiter that uses Redis to coordinate across multiple service instances.
@@ -18,8 +19,8 @@ export class RedisConcurrencyLimit {
    * @param lockTimeoutSeconds - Maximum time in seconds before a lock is automatically released
    *                            (prevents deadlocks if a process crashes)
    */
-  constructor(resourceName: string, limit: number, lockTimeoutSeconds = 60) {
-    this.key = `semaphore:${resourceName}`;
+  constructor(resourceName: string, limit: number, lockTimeoutSeconds = REDIS_CONFIG.CONCURRENCY.LOCK_TIMEOUT_SECONDS) {
+    this.key = `${REDIS_PREFIXES.SEMAPHORE}${resourceName}`;
     this.limit = limit;
     this.lockTimeout = lockTimeoutSeconds;
   }
@@ -73,7 +74,11 @@ export class RedisConcurrencyLimit {
       
       if (token === null) {
         // No slot available, wait with exponential backoff
-        const waitTime = Math.min(100 * Math.pow(1.5, retryCount), 5000);
+        const waitTime = Math.min(
+          REDIS_CONFIG.CONCURRENCY.RETRY_MULTIPLIER * 
+          Math.pow(REDIS_CONFIG.CONCURRENCY.EXPONENTIAL_BACKOFF_BASE, retryCount), 
+          REDIS_CONFIG.CONCURRENCY.MAX_RETRY_DELAY
+        );
         await new Promise(resolve => setTimeout(resolve, waitTime));
         retryCount++;
       }
