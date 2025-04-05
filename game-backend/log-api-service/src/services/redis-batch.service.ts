@@ -1,7 +1,8 @@
 import redis from '../config/redis';
 import { env } from '../config/env';
 import { KafkaProducer } from '../producers/kafka.producer';
-import { LogTypes, LogKeywords } from '../constants/log.constants';
+import { LOG_TYPES, LOG_KEYWORDS } from '../constants/log.constants';
+import { REDIS_KEYS, BATCH_SCORES, BATCH_TIMES } from '../constants/redis.constants';
 import { RedisLock } from '../utils/redisLock';
 import { hostname } from 'os';
 
@@ -23,7 +24,7 @@ interface ScoredLog {
  */
 export class RedisBatchService {
   private readonly kafkaProducer: KafkaProducer;
-  private readonly queueKey = 'logs:priority';
+  private readonly queueKey = REDIS_KEYS.LOGS_QUEUE;
   private readonly batchSize: number;
   private readonly flushIntervalMs: number;
   private flushTimer: NodeJS.Timeout;
@@ -85,25 +86,21 @@ export class RedisBatchService {
     logData: string;
     logType?: string;
   }): number {
-    let score = 0;
+    let score = BATCH_SCORES.DEFAULT;
     
-    // Base priority by log type
-    if (log.logType === LogTypes.CRASH) {
-      score += 1000; // Highest priority
-    } else if (log.logType === 'critical') {
-      score += 900;
-    } else if (log.logType === 'error') {
-      score += 500;
+    // Base score on log type
+    if (log.logType === LOG_TYPES.CRASH) {
+      score = BATCH_SCORES.CRASH;
+    } else if (log.logType === LOG_TYPES.ERROR) {
+      score = BATCH_SCORES.ERROR;
     }
     
-    // Content-based priority
-    if (log.logData?.toLowerCase().includes(LogKeywords.CRITICAL)) {
-      score += 800;
+    // Additional score boost for critical logs
+    if (log.logData?.toLowerCase().includes(LOG_KEYWORDS.CRITICAL)) {
+      score = Math.min(score, BATCH_SCORES.CRITICAL_BOOST);
     }
     
-    // Return negative score so higher values have higher priority
-    // (Redis ZPOPMIN returns the lowest scoring members)
-    return -score;
+    return score;
   }
 
   /**
@@ -112,21 +109,18 @@ export class RedisBatchService {
    */
   private async flush(): Promise<void> {
     if (this.isProcessing) {
-      return; // Already processing locally
+      return;
     }
     
     this.isProcessing = true;
     
     try {
-      // Create a lock for the flush operation
-      const lock = new RedisLock('log-batch-flush', 30); // 30 second lock timeout
-      
-      // Try to acquire the lock
+      const lock = new RedisLock(REDIS_KEYS.BATCH_FLUSH_LOCK, BATCH_TIMES.LOCK_TIMEOUT);
       const acquired = await lock.acquire();
       
       if (!acquired) {
         console.log(`🔒 Another worker is processing the batch queue`);
-        return; // Another worker is processing
+        return;
       }
       
       console.log(`🔓 Lock acquired by worker ${WORKER_ID}`);
@@ -136,18 +130,14 @@ export class RedisBatchService {
         const timeElapsed = currentTime - this.lastProcessTime;
         
         // Process high priority logs first
-        await this.flushPriorityQueue(env.kafkaHighPriorityTopic, -10000, -500); // Score range for high priority
+        await this.processBatch(env.kafkaHighPriorityTopic);
         
-        // Process low priority logs if:
-        // 1. There are no more high priority logs, OR
-        // 2. It's been at least 3x the flush interval since we processed low priority logs
-        //    (prevents starvation of lower priority logs)
-        if (timeElapsed > this.flushIntervalMs * 3) {
-          await this.flushPriorityQueue(env.kafkaLowPriorityTopic, -499, 0); // Score range for low priority
+        // Process low priority logs if enough time has passed
+        if (timeElapsed > this.flushIntervalMs * BATCH_TIMES.LOW_PRIORITY_MULTIPLIER) {
+          await this.processBatch(env.kafkaLowPriorityTopic);
           this.lastProcessTime = currentTime;
         }
       } finally {
-        // Always release the lock when done
         await lock.release();
         console.log(`🔓 Lock released by worker ${WORKER_ID}`);
       }
@@ -159,53 +149,51 @@ export class RedisBatchService {
   /**
    * Flushes logs within a specific priority range to a Kafka topic
    */
-  private async flushPriorityQueue(kafkaTopic: string, minScore: number, maxScore: number): Promise<void> {
-    // Get queue length within score range
-    const queueLength = await redis.zCount(this.queueKey, minScore, maxScore);
+  private async processBatch(kafkaTopic: string): Promise<void> {
+    // Get queue length
+    const queueLength = await redis.zCard(this.queueKey);
     
     if (queueLength === 0) {
-      return; // Nothing to process in this range
+      return; // Nothing to process
     }
     
     // Process in batches
     const batchSize = Math.min(this.batchSize, queueLength);
     
-    // Use ZRANGEBYSCORE and ZREMRANGEBYSCORE to get and remove elements in a specified score range
-    // First, get the elements
-    const items = await redis.zRangeByScore(
-      this.queueKey,
-      minScore,
-      maxScore,
-      {
-        LIMIT: {
-          offset: 0,
-          count: batchSize
+    try {
+      // Use ZPOPMIN to get and remove the lowest scoring elements (highest priority)
+      const items = await redis.sendCommand(['ZPOPMIN', this.queueKey, batchSize.toString()]);
+      
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return;
+      }
+      
+      // Parse result: [value1, score1, value2, score2, ...]
+      const logs = [];
+      for (let i = 0; i < items.length; i += 2) {
+        const item = items[i];
+        if (item !== null && item !== undefined) {
+          const value = item.toString();
+          try {
+            const parsedLog = JSON.parse(value);
+            // Remove timestamp before sending to Kafka
+            const { timestamp, ...logData } = parsedLog;
+            logs.push(logData);
+          } catch (e) {
+            console.error('Error parsing log JSON:', e);
+          }
         }
       }
-    ) as string[];
-    
-    if (!items || items.length === 0) {
-      return;
+      
+      // Send logs to Kafka
+      for (const log of logs) {
+        await this.kafkaProducer.sendLogToTopic(kafkaTopic, log);
+      }
+      
+      console.log(`Worker ${WORKER_ID} sent ${logs.length} logs to Kafka topic ${kafkaTopic}`);
+    } catch (error) {
+      console.error('Error processing batch:', error);
     }
-    
-    // Parse each JSON string into a log object and extract scores for later removal
-    const logs = items.map((item: string) => {
-      const parsedLog = JSON.parse(item);
-      // Remove timestamp before sending to Kafka
-      const { timestamp, ...logData } = parsedLog;
-      return logData;
-    });
-    
-    // Remove the processed elements
-    // We're removing by value (not by score) to ensure we only remove what we processed
-    await Promise.all(items.map(item => redis.zRem(this.queueKey, item)));
-    
-    // Send logs to Kafka
-    for (const log of logs) {
-      await this.kafkaProducer.sendLogToTopic(kafkaTopic, log);
-    }
-    
-    console.log(`Worker ${WORKER_ID} sent ${logs.length} logs to Kafka topic ${kafkaTopic}`);
   }
 
   /**
@@ -216,13 +204,13 @@ export class RedisBatchService {
     clearInterval(this.flushTimer);
     
     // Final flush of all logs with lock
-    const lock = new RedisLock('log-batch-flush-shutdown', 60);
+    const lock = new RedisLock(REDIS_KEYS.SHUTDOWN_LOCK, BATCH_TIMES.SHUTDOWN_LOCK_TIMEOUT);
     const acquired = await lock.acquire();
     
     if (acquired) {
       try {
-        await this.flushPriorityQueue(env.kafkaHighPriorityTopic, -10000, -500);
-        await this.flushPriorityQueue(env.kafkaLowPriorityTopic, -499, 0);
+        await this.processBatch(env.kafkaHighPriorityTopic);
+        await this.processBatch(env.kafkaLowPriorityTopic);
       } finally {
         await lock.release();
       }
