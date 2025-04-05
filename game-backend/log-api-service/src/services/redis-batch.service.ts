@@ -2,7 +2,7 @@ import redis from '../config/redis';
 import { env } from '../config/env';
 import { KafkaProducer } from '../producers/kafka.producer';
 import { LOG_TYPES, LOG_KEYWORDS } from '../constants/log.constants';
-import { REDIS_KEYS, BATCH_SCORES, BATCH_TIMES } from '../constants/redis.constants';
+import { REDIS_KEYS, BATCH_SCORES, BATCH_TIMES, REDIS_MESSAGES } from '../constants/redis.constants';
 import { RedisLock } from '../utils/redisLock';
 import { hostname } from 'os';
 
@@ -119,11 +119,11 @@ export class RedisBatchService {
       const acquired = await lock.acquire();
       
       if (!acquired) {
-        console.log(`🔒 Another worker is processing the batch queue`);
+        console.log(REDIS_MESSAGES.BATCH.ANOTHER_WORKER);
         return;
       }
       
-      console.log(`🔓 Lock acquired by worker ${WORKER_ID}`);
+      console.log(REDIS_MESSAGES.BATCH.LOCK_ACQUIRED(WORKER_ID));
       
       try {
         const currentTime = Date.now();
@@ -139,7 +139,7 @@ export class RedisBatchService {
         }
       } finally {
         await lock.release();
-        console.log(`🔓 Lock released by worker ${WORKER_ID}`);
+        console.log(REDIS_MESSAGES.BATCH.LOCK_RELEASED(WORKER_ID));
       }
     } finally {
       this.isProcessing = false;
@@ -180,7 +180,7 @@ export class RedisBatchService {
             const { timestamp, ...logData } = parsedLog;
             logs.push(logData);
           } catch (e) {
-            console.error('Error parsing log JSON:', e);
+            console.error(REDIS_MESSAGES.BATCH.PARSE_ERROR, e);
           }
         }
       }
@@ -190,9 +190,9 @@ export class RedisBatchService {
         await this.kafkaProducer.sendLogToTopic(kafkaTopic, log);
       }
       
-      console.log(`Worker ${WORKER_ID} sent ${logs.length} logs to Kafka topic ${kafkaTopic}`);
+      console.log(REDIS_MESSAGES.BATCH.SENT_LOGS(WORKER_ID, logs.length, kafkaTopic));
     } catch (error) {
-      console.error('Error processing batch:', error);
+      console.error(REDIS_MESSAGES.BATCH.PROCESSING_ERROR, error);
     }
   }
 
@@ -200,14 +200,14 @@ export class RedisBatchService {
    * Gracefully shuts down the service
    */
   public async shutdown(): Promise<void> {
-    console.log(`Shutting down Redis batch service for worker ${WORKER_ID}...`);
+    console.log(REDIS_MESSAGES.SHUTDOWN.STARTED(WORKER_ID));
     clearInterval(this.flushTimer);
     
     // Final flush of all logs with lock
     const lock = new RedisLock(REDIS_KEYS.SHUTDOWN_LOCK, BATCH_TIMES.SHUTDOWN_LOCK_TIMEOUT);
     const acquired = await lock.acquire();
     
-    if (acquired) {
+    sif (acquired) {
       try {
         await this.processBatch(env.kafkaHighPriorityTopic);
         await this.processBatch(env.kafkaLowPriorityTopic);
@@ -216,6 +216,6 @@ export class RedisBatchService {
       }
     }
     
-    console.log(`Redis batch service shutdown complete for worker ${WORKER_ID}`);
+    console.log(REDIS_MESSAGES.SHUTDOWN.COMPLETE(WORKER_ID));
   }
 } 

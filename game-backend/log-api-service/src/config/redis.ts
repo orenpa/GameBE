@@ -1,6 +1,7 @@
 import { createClient } from 'redis';
 import dotenv from 'dotenv';
 import { env } from './env';
+import { REDIS_MESSAGES } from '../constants/redis.constants';
 
 dotenv.config();
 
@@ -16,15 +17,15 @@ const redis = createClient({
 });
 
 redis.on('error', (err) => {
-  console.error('❌ Redis connection error:', err);
+  console.error(REDIS_MESSAGES.CONNECTION.ERROR, err);
 });
 
 redis.on('connect', () => {
-  console.log('✅ Connected to Redis');
+  console.log(REDIS_MESSAGES.CONNECTION.CONNECTED);
 });
 
 redis.on('reconnecting', () => {
-  console.log('⏳ Reconnecting to Redis...');
+  console.log(REDIS_MESSAGES.CONNECTION.RECONNECTING);
 });
 
 // Connect when imported
