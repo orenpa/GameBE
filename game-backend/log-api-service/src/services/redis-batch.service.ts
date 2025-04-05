@@ -207,7 +207,7 @@ export class RedisBatchService {
     const lock = new RedisLock(REDIS_KEYS.SHUTDOWN_LOCK, BATCH_TIMES.SHUTDOWN_LOCK_TIMEOUT);
     const acquired = await lock.acquire();
     
-    sif (acquired) {
+    if (acquired) {
       try {
         await this.processBatch(env.kafkaHighPriorityTopic);
         await this.processBatch(env.kafkaLowPriorityTopic);
