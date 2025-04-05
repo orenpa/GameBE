@@ -1,29 +1,32 @@
 import { LogModel } from '../models/log.model';
 import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
 import { Kafka } from 'kafkajs';
-import { env } from '../config/env'; 
+import { env } from '../config/env';
 import { limitConcurrency } from '../utils/limit';
+import { LOG_MESSAGES, LOG_CONFIG } from '../constants/log.constants';
+import { REDIS_KEYS } from '../constants/redis.constants';
 
 interface LogInput {
   playerId: string;
   logData: string;
 }
+
 export class LogService {
   private buffer: LogInput[] = [];
-  private readonly batchSize = 10;
-  private readonly flushInterval = 2000; // ms
+  private readonly batchSize = LOG_CONFIG.SERVICE.BATCH_SIZE;
+  private readonly flushInterval = LOG_CONFIG.SERVICE.FLUSH_INTERVAL;
   private flushTimer: NodeJS.Timeout;
   private kafkaProducer = new Kafka({
-    clientId: 'log-worker',
+    clientId: LOG_CONFIG.CONSUMER.CLIENT_ID,
     brokers: [env.kafkaBroker],
   }).producer();
   
   // Use Redis-based rate limiter for distributed rate limiting
   private readonly rateLimiter = new RedisTokenBucketRateLimiter(
-    'mongodb-writes', 
-    env.maxWriteRatePerSecond, 
+    REDIS_KEYS.MONGODB.WRITES,
+    env.maxWriteRatePerSecond,
     env.maxWriteRatePerSecond
-  ); 
+  );
 
   constructor() {
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
@@ -52,9 +55,9 @@ export class LogService {
         await LogModel.insertMany(batch);
       });
       
-      console.log(`✅ Flushed ${batch.length} logs to MongoDB`);
+      console.log(LOG_MESSAGES.SERVICE.FLUSHED(batch.length));
     } catch (error) {
-      console.error(`❌ Failed to flush batch. Sending to retry queue.`, error);
+      console.error(LOG_MESSAGES.SERVICE.FLUSH_ERROR, error);
     
       const retryMessages = batch.map((log) => ({
         key: log.playerId,
@@ -67,9 +70,9 @@ export class LogService {
           messages: retryMessages,
         });
     
-        console.log(`🔁 Sent ${retryMessages.length} logs to retry queue`);
+        console.log(LOG_MESSAGES.SERVICE.RETRY_SENT(retryMessages.length));
       } catch (sendErr) {
-        console.error('❌ Failed to send logs to retry topic:', sendErr);
+        console.error(LOG_MESSAGES.SERVICE.RETRY_ERROR, sendErr);
       }
     }
   }

@@ -80,11 +80,10 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
-      - MONGO_URI=mongodb://mongodb:27017/leaderboard
+      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/leaderboarddb?retryWrites=true&w=majority&appName=Cluster0
       - REDIS_URL=redis://redis:6379
       - LOG_API_URL=http://log-api-service:3004
     depends_on:
-      - mongodb
       - redis
       - log-api-service
 

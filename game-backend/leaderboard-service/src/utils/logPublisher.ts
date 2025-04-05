@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '../config/env';
+import { LOG_PUBLISHER_MESSAGES } from '../constants/log.constants';
 
 interface LogPayload {
   playerId: string;
@@ -18,7 +19,7 @@ export class LogPublisher {
     try {
       await axios.post(`${this.logApiUrl}/logs`, log);
     } catch (error) {
-      console.error('❌ Failed to send log to log-api-service:', error);
+      console.error(LOG_PUBLISHER_MESSAGES.FAILED_SEND, error);
     }
   }
 }

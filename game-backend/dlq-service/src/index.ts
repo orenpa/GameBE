@@ -1,27 +1,28 @@
 import mongoose from 'mongoose';
 import { env } from './config/env';
 import { DlqConsumer } from './consumers/dlq.consumer';
+import { SYSTEM_MESSAGES } from './constants/system.constants';
 
 const consumer = new DlqConsumer();
 
 const start = async () => {
   try {
-    console.log('🔌 Connecting to MongoDB...');
+    console.log(SYSTEM_MESSAGES.STARTUP.CONNECTING_MONGODB);
     await mongoose.connect(env.mongoUri);
-    console.log('✅ Connected to MongoDB');
+    console.log(SYSTEM_MESSAGES.STARTUP.CONNECTED_MONGODB);
 
     await consumer.start();
   } catch (error) {
-    console.error('❌ Failed to start DLQ service:', error);
+    console.error(SYSTEM_MESSAGES.STARTUP.FAILED_STARTUP, error);
     process.exit(1);
   }
 };
 
 const shutdown = async () => {
-  console.log('\n🛑 Shutting down DLQ service...');
+  console.log(SYSTEM_MESSAGES.SHUTDOWN.STARTED);
   await consumer.disconnect();
   await mongoose.disconnect();
-  console.log('✅ DLQ service shutdown complete');
+  console.log(SYSTEM_MESSAGES.SHUTDOWN.COMPLETE);
   process.exit(0);
 };
 

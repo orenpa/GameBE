@@ -1,4 +1,5 @@
 import redis from '../config/redis';
+import { REDIS_CONFIG, REDIS_PREFIXES, REDIS_MESSAGES } from '../constants/redis.constants';
 
 /**
  * A distributed token bucket rate limiter that uses Redis for coordination across multiple instances.
@@ -17,7 +18,7 @@ export class RedisTokenBucketRateLimiter {
    * @param refillRatePerSecond - How many tokens to add per second
    */
   constructor(key: string, capacity: number, refillRatePerSecond: number) {
-    this.key = `rate-limiter:${key}`;
+    this.key = `${REDIS_PREFIXES.RATE_LIMITER}${key}`;
     this.capacity = capacity;
     this.refillRatePerSecond = refillRatePerSecond;
   }
@@ -27,53 +28,28 @@ export class RedisTokenBucketRateLimiter {
    * This method will block until a token becomes available.
    */
   public async wait(): Promise<void> {
-    // Lua script for atomic token bucket algorithm
-    const luaScript = `
-      local key = KEYS[1]
-      local now = tonumber(ARGV[1])
-      local capacity = tonumber(ARGV[2])
-      local refillRate = tonumber(ARGV[3])
-      
-      -- Get current bucket state or initialize
-      local bucket = redis.call('hmget', key, 'tokens', 'lastRefill')
-      local tokens = tonumber(bucket[1]) or capacity
-      local lastRefill = tonumber(bucket[2]) or now
-      
-      -- Calculate time since last refill and new tokens
-      local timePassed = math.max(0, now - lastRefill)
-      local newTokens = math.min(capacity, tokens + (timePassed * refillRate / 1000))
-      
-      -- If we have at least one token, consume it
-      if newTokens >= 1 then
-        -- Update bucket state
-        redis.call('hmset', key, 'tokens', newTokens - 1, 'lastRefill', now)
-        redis.call('expire', key, 60) -- TTL for cleanup
-        return 1 -- Success, token consumed
-      else
-        -- Keep bucket state but don't consume
-        redis.call('hmset', key, 'tokens', newTokens, 'lastRefill', now)
-        redis.call('expire', key, 60) -- TTL for cleanup
-        return 0 -- No tokens available
-      end
-    `;
-
-    // Try to acquire a token
-    let acquired = false;
-    while (!acquired) {
-      const result = await redis.eval(
-        luaScript,
-        {
-          keys: [this.key],
-          arguments: [Date.now().toString(), this.capacity.toString(), this.refillRatePerSecond.toString()]
+    try {
+      // Try to acquire a token
+      let acquired = false;
+      while (!acquired) {
+        const result = await redis.eval(
+          REDIS_CONFIG.RATE_LIMITER.LUA_SCRIPT,
+          {
+            keys: [this.key],
+            arguments: [Date.now().toString(), this.capacity.toString(), this.refillRatePerSecond.toString()]
+          }
+        );
+        
+        acquired = result === 1;
+        
+        if (!acquired) {
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, REDIS_CONFIG.RATE_LIMITER.RETRY_DELAY));
         }
-      );
-      
-      acquired = result === 1;
-      
-      if (!acquired) {
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 50));
       }
+    } catch (error) {
+      console.error(REDIS_MESSAGES.CONNECTION.ERROR, error);
+      throw error;
     }
   }
 } 

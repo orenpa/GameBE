@@ -3,8 +3,9 @@ import { LogPublisher } from '../utils/logPublisher';
 import { LogType } from '../constants/log.enums';
 import { SYSTEM_ACTOR } from '../constants/log.constants';
 import redis from '../config/redis';
-import { CACHE_KEYS, CACHE_CONFIG } from '../constants/cache.constants';
+import { CACHE_KEYS, CACHE_CONFIG, CACHE_MESSAGES } from '../constants/cache.constants';
 import { LEADERBOARD, LOG_MESSAGES, ERROR_MESSAGES } from '../constants/leaderboard.constants';
+import { MONGO_QUERY } from '../constants/mongo.constants';
 
 const Score = mongoose.connection.collection(LEADERBOARD.COLLECTION_NAME);
 
@@ -90,15 +91,15 @@ export class LeaderboardService {
         },
       },
       {
-        $sort: { totalScore: -1, _id: 1 },
+        $sort: { totalScore: MONGO_QUERY.SORT.DESC, _id: MONGO_QUERY.SORT.ASC },
       },
       { $skip: skip },
       { $limit: limit },
       {
         $project: {
-          _id: 0,
+          _id: MONGO_QUERY.PROJECTION.EXCLUDE_ID,
           playerId: '$_id',
-          totalScore: 1,
+          totalScore: MONGO_QUERY.PROJECTION.INCLUDE,
         },
       },
     ]).toArray();

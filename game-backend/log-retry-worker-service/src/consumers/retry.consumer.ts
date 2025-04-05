@@ -1,6 +1,8 @@
 import { Kafka, Consumer } from 'kafkajs';
 import { env } from '../config/env';
 import { RetryService } from '../services/retry.service';
+import { LOG_CONSTANTS, LOG_MESSAGES } from '../constants/log.constants';
+import { RetryLog } from '../interfaces/retry.interface';
 
 export class RetryConsumer {
   private consumer: Consumer;
@@ -8,7 +10,7 @@ export class RetryConsumer {
 
   constructor() {
     const kafka = new Kafka({
-      clientId: 'log-retry-worker',
+      clientId: LOG_CONSTANTS.CLIENT_IDS.CONSUMER,
       brokers: [env.kafkaBroker],
     });
 
@@ -18,7 +20,7 @@ export class RetryConsumer {
 
   public async start(): Promise<void> {
     await this.consumer.connect();
-    console.log('🔁 Kafka retry consumer connected');
+    console.log(LOG_MESSAGES.SUCCESS.KAFKA_CONSUMER_CONNECTED);
 
     await this.consumer.subscribe({ topic: env.kafkaRetryTopic, fromBeginning: false });
 
@@ -29,10 +31,10 @@ export class RetryConsumer {
         const raw = message.value.toString();
 
         try {
-          const parsed = JSON.parse(raw);
+          const parsed = JSON.parse(raw) as RetryLog;
           await this.retryService.handleRetry(parsed);
         } catch (error) {
-          console.error('❌ Failed to handle retry message:', raw, error);
+          console.error(LOG_MESSAGES.ERROR.HANDLE_RETRY_MESSAGE(raw), error);
         }
       },
     });
@@ -41,9 +43,9 @@ export class RetryConsumer {
   public async disconnect(): Promise<void> {
     try {
       await this.consumer.disconnect();
-      console.log('📴 Kafka retry consumer disconnected');
+      console.log(LOG_MESSAGES.SUCCESS.KAFKA_CONSUMER_DISCONNECTED);
     } catch (error) {
-      console.error('⚠️ Failed to disconnect retry consumer:', error);
+      console.error(LOG_MESSAGES.ERROR.CONSUMER_DISCONNECT, error);
     }
   }
 }

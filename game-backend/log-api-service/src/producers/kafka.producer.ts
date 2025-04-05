@@ -1,12 +1,13 @@
 import { Kafka, Producer } from 'kafkajs';
 import { env } from '../config/env';
+import { KAFKA_CONFIG, KAFKA_MESSAGES } from '../constants/kafka.constants';
 
 export class KafkaProducer {
   private producer: Producer;
 
   constructor() {
     const kafka = new Kafka({
-      clientId: 'log-api-producer',
+      clientId: KAFKA_CONFIG.CLIENT_ID,
       brokers: [env.kafkaBroker],
     });
 
@@ -19,14 +20,20 @@ export class KafkaProducer {
   }
 
   public async sendLogToTopic(topic: string, log: { playerId: string; logData: string; logType?: string }) {
-    await this.producer.send({
-      topic,
-      messages: [
-        {
-          key: log.playerId,
-          value: JSON.stringify(log),
-        },
-      ],
-    });
+    try {
+      await this.producer.send({
+        topic,
+        messages: [
+          {
+            key: log.playerId,
+            value: JSON.stringify(log),
+          },
+        ],
+      });
+      console.log(KAFKA_MESSAGES.SEND_SUCCESS);
+    } catch (error) {
+      console.error(KAFKA_MESSAGES.SEND_FAILED, error);
+      throw error;
+    }
   }
 }

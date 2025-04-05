@@ -1,6 +1,8 @@
 import { Kafka, Consumer } from 'kafkajs';
 import { env } from '../config/env';
 import { LogService } from '../services/log.service';
+import { LOG_MESSAGES, LOG_CONFIG } from '../constants/log.constants';
+import { CONFIG } from '../constants/config.constants';
 
 export class LogConsumer {
   private logService: LogService;
@@ -10,7 +12,7 @@ export class LogConsumer {
     this.logService = logService;
 
     const kafka = new Kafka({
-      clientId: 'log-worker',
+      clientId: LOG_CONFIG.CONSUMER.CLIENT_ID,
       brokers: [env.kafkaBroker],
     });
 
@@ -19,9 +21,9 @@ export class LogConsumer {
 
   public async subscribe(topic: string): Promise<void> {
     await this.consumer.connect();
-    console.log(`✅ Kafka consumer connected to topic "${topic}"`);
+    console.log(LOG_MESSAGES.CONSUMER.CONNECTED(topic));
 
-    await this.consumer.subscribe({ topic, fromBeginning: false });
+    await this.consumer.subscribe({ topic, fromBeginning: CONFIG.KAFKA.FROM_BEGINNING });
   }
 
   public async start(): Promise<void> {
@@ -33,9 +35,9 @@ export class LogConsumer {
         try {
           const parsed = JSON.parse(raw);
           await this.logService.saveLog(parsed);
-          console.log('📝 Processed log:', parsed);
+          console.log(LOG_MESSAGES.CONSUMER.PROCESSED(parsed));
         } catch (error) {
-          console.error('❌ Failed to process log:', raw, error);
+          console.error(LOG_MESSAGES.CONSUMER.PROCESS_ERROR(raw, error));
         }
       },
     });
@@ -44,9 +46,9 @@ export class LogConsumer {
   public async disconnect(): Promise<void> {
     try {
       await this.consumer.disconnect();
-      console.log('📴 Kafka consumer disconnected');
+      console.log(LOG_MESSAGES.CONSUMER.DISCONNECTED);
     } catch (error) {
-      console.error('⚠️ Failed to disconnect Kafka consumer:', error);
+      console.error(LOG_MESSAGES.CONSUMER.SHUTDOWN_ERROR, error);
     }
   }
 }

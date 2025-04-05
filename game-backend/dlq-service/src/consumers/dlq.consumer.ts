@@ -1,13 +1,14 @@
 import { Kafka, Consumer } from 'kafkajs';
 import { env } from '../config/env';
 import { DlqLogModel } from '../models/dlq-log.model';
+import { DLQ_MESSAGES, DLQ_CONFIG } from '../constants/dlq.constants';
 
 export class DlqConsumer {
   private consumer: Consumer;
 
   constructor() {
     const kafka = new Kafka({
-      clientId: 'dlq-consumer',
+      clientId: DLQ_CONFIG.CLIENT_ID,
       brokers: [env.kafkaBroker],
     });
 
@@ -16,7 +17,7 @@ export class DlqConsumer {
 
   public async start(): Promise<void> {
     await this.consumer.connect();
-    console.log('📥 DLQ Consumer connected');
+    console.log(DLQ_MESSAGES.CONSUMER.CONNECTED);
 
     await this.consumer.subscribe({ topic: env.kafkaDLQTopic, fromBeginning: false });
 
@@ -29,9 +30,9 @@ export class DlqConsumer {
         try {
           const parsed = JSON.parse(raw);
           await DlqLogModel.create(parsed);
-          console.log(`💾 DLQ log stored: ${parsed.playerId} (retryCount: ${parsed.retryCount})`);
+          console.log(DLQ_MESSAGES.LOG.STORED(parsed.playerId, parsed.retryCount));
         } catch (error) {
-          console.error('❌ Failed to insert DLQ message:', raw, error);
+          console.error(DLQ_MESSAGES.LOG.INSERT_ERROR, raw, error);
         }
       },
     });
@@ -40,9 +41,9 @@ export class DlqConsumer {
   public async disconnect(): Promise<void> {
     try {
       await this.consumer.disconnect();
-      console.log('📴 DLQ consumer disconnected');
+      console.log(DLQ_MESSAGES.CONSUMER.DISCONNECTED);
     } catch (error) {
-      console.error('⚠️ Error during DLQ consumer shutdown:', error);
+      console.error(DLQ_MESSAGES.CONSUMER.SHUTDOWN_ERROR, error);
     }
   }
 }

@@ -1,5 +1,5 @@
-import { LogPriority } from '../constants/priority.enum';
-import { LogTypes, LogKeywords } from '../constants/log.constants';
+import { LOG_PRIORITIES } from '../constants/log.constants';
+import { LOG_TYPES, LOG_KEYWORDS } from '../constants/log.constants';
 
 interface LogInput {
   playerId: string;
@@ -7,15 +7,15 @@ interface LogInput {
   logType?: string;
 }
 
-export function evaluateLogPriority(log: LogInput): LogPriority {
+export function evaluateLogPriority(log: LogInput): string {
   const { logData, logType } = log;
 
-  const isCrashLog = logType === LogTypes.CRASH;
-  const isCritical = logData?.toLowerCase().includes(LogKeywords.CRITICAL);
+  const isCrashLog = logType === LOG_TYPES.CRASH;
+  const isCritical = logData?.toLowerCase().includes(LOG_KEYWORDS.CRITICAL);
 
   if (isCrashLog || isCritical) {
-    return LogPriority.HIGH;
+    return LOG_PRIORITIES.HIGH;
   }
 
-  return LogPriority.LOW;
+  return LOG_PRIORITIES.LOW;
 }

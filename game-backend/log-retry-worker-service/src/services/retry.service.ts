@@ -3,26 +3,21 @@ import { env } from '../config/env';
 import { LogModel } from '../models/log.model';
 import { limitConcurrency } from '../utils/limit';
 import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
-
-
-interface RetryLog {
-  playerId: string;
-  logData: string;
-  retryCount?: number;
-}
+import { LOG_CONSTANTS, LOG_MESSAGES } from '../constants/log.constants';
+import { RetryLog } from '../interfaces/retry.interface';
 
 export class RetryService {
   private producer;
   // Use Redis-based rate limiter for distributed rate limiting
   private rateLimiter = new RedisTokenBucketRateLimiter(
-    'retry-mongodb-writes', 
+    LOG_CONSTANTS.RATE_LIMITER.KEY,
     env.maxWriteRatePerSecond, 
     env.maxWriteRatePerSecond
   );
 
   constructor() {
     const kafka = new Kafka({
-      clientId: 'retry-service-producer',
+      clientId: LOG_CONSTANTS.CLIENT_IDS.PRODUCER,
       brokers: [env.kafkaBroker],
     });
 
@@ -45,9 +40,9 @@ export class RetryService {
         });
       });
       
-      console.log(`✅ Retry succeeded for player ${log.playerId}`);
+      console.log(LOG_MESSAGES.SUCCESS.RETRY_SUCCEEDED(log.playerId));
     } catch (error) {
-      console.warn(`⚠️ Retry failed (count: ${retryCount})`, error);
+      console.warn(LOG_MESSAGES.ERROR.RETRY_FAILED(retryCount), error);
 
       if (retryCount + 1 >= env.maxRetries) {
         // Send to DLQ
@@ -64,7 +59,7 @@ export class RetryService {
       topic: env.kafkaRetryTopic,
       messages: [{ key: log.playerId, value: JSON.stringify(log) }],
     });
-    console.log(`🔁 Requeued log for retry (count: ${log.retryCount})`);
+    console.log(LOG_MESSAGES.INFO.REQUEUED(log.retryCount || 0));
   }
 
   private async sendToDLQ(log: RetryLog): Promise<void> {
@@ -72,6 +67,6 @@ export class RetryService {
       topic: env.kafkaDLQTopic,
       messages: [{ key: log.playerId, value: JSON.stringify(log) }],
     });
-    console.log(`💀 Sent log to DLQ for player ${log.playerId}`);
+    console.log(LOG_MESSAGES.INFO.SENT_TO_DLQ(log.playerId));
   }
 }
