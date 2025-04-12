@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { PlayerService } from '../services/player.service';
 import { IPlayerService } from '../interfaces/service.interfaces';
+import { serviceFactory } from '../factories/service.factory';
 
 export class PlayerController {
   private playerService: IPlayerService;
 
-  constructor(playerService: IPlayerService = new PlayerService()) {
+  constructor(playerService: IPlayerService = serviceFactory.createPlayerService()) {
     this.playerService = playerService;
   }
 

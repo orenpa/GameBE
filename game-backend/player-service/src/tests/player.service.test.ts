@@ -2,16 +2,44 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { PlayerService } from '../services/player.service';
 import Player from '../models/player.model';
+import { ICacheService, ILogPublisher } from '../interfaces/service.interfaces';
+
+// Create mock implementations for dependencies
+class MockLogPublisher implements ILogPublisher {
+  async publish(): Promise<void> {
+    // Mock implementation that does nothing
+  }
+}
+
+class MockCacheService implements ICacheService {
+  async getPlayer(): Promise<any> {
+    return null;
+  }
+  async setPlayer(): Promise<void> {
+    // Mock implementation
+  }
+  async deletePlayer(): Promise<void> {
+    // Mock implementation
+  }
+  async invalidateAllPlayers(): Promise<void> {
+    // Mock implementation
+  }
+}
 
 describe('PlayerService', () => {
   let mongoServer: MongoMemoryServer;
   let service: PlayerService;
+  let mockLogPublisher: ILogPublisher;
+  let mockCacheService: ICacheService;
 
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
     const uri = mongoServer.getUri();
     await mongoose.connect(uri);
-    service = new PlayerService();
+    
+    mockLogPublisher = new MockLogPublisher();
+    mockCacheService = new MockCacheService();
+    service = new PlayerService(mockLogPublisher, mockCacheService);
   });
 
   afterAll(async () => {
