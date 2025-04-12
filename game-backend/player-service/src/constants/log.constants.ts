@@ -3,6 +3,13 @@ export enum LOG_TYPE {
   ERROR = 'error',
 }
 
+export const LOG_TYPES = {
+  INFO: 'info',
+  ERROR: 'error', 
+  CRASH: 'crash',
+  CRITICAL: 'critical',
+};
+
 export const LOG_MESSAGES = {
   PLAYER: {
     CREATED: (email: string) => `Player created: ${email}`,

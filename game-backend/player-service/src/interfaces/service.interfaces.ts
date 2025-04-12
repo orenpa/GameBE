@@ -1,10 +1,11 @@
 import { IPlayer } from '../models/player.model';
+import { LOG_TYPES } from '../constants/log.constants';
 
 export interface ILogPublisher {
   publish(logData: {
     playerId: string;
     logData: string;
-    logType?: 'info' | 'error' | 'crash' | 'critical';
+    logType?: typeof LOG_TYPES[keyof typeof LOG_TYPES];
   }): Promise<void>;
 }
 

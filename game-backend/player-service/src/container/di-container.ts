@@ -2,17 +2,18 @@ import { CacheService } from '../services/cache.service';
 import { PlayerService } from '../services/player.service';
 import { LogPublisher } from '../utils/logPublisher';
 import { ICacheService, ILogPublisher, IPlayerService } from '../interfaces/service.interfaces';
+import { CONTAINER_SERVICES, CONTAINER_ERRORS } from '../constants/container.constants';
 
 class DIContainer {
   private services: Map<string, any> = new Map();
 
   constructor() {
     // Register default implementations
-    this.register('logPublisher', new LogPublisher());
-    this.register('cacheService', new CacheService());
-    this.register('playerService', new PlayerService(
-      this.get<ILogPublisher>('logPublisher'),
-      this.get<ICacheService>('cacheService')
+    this.register(CONTAINER_SERVICES.LOG_PUBLISHER, new LogPublisher());
+    this.register(CONTAINER_SERVICES.CACHE_SERVICE, new CacheService());
+    this.register(CONTAINER_SERVICES.PLAYER_SERVICE, new PlayerService(
+      this.get<ILogPublisher>(CONTAINER_SERVICES.LOG_PUBLISHER),
+      this.get<ICacheService>(CONTAINER_SERVICES.CACHE_SERVICE)
     ));
   }
 
@@ -23,7 +24,7 @@ class DIContainer {
   get<T>(name: string): T {
     const service = this.services.get(name);
     if (!service) {
-      throw new Error(`Service ${name} not found in container`);
+      throw new Error(CONTAINER_ERRORS.SERVICE_NOT_FOUND(name));
     }
     return service as T;
   }

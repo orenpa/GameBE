@@ -36,14 +36,14 @@ services:
     build: ./player-service
     container_name: player-service
     ports:
-      - "3001:3001"
+      - "${PLAYER_SERVICE_PORT:-3001}:${PLAYER_SERVICE_PORT:-3001}"
     environment:
-      - PORT=3001
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/playerdb?retryWrites=true&w=majority&appName=Cluster0
-      - LOG_API_URL=http://log-api-service:3004
-      - KAFKA_BROKER=kafka:9092
-      - KAFKA_RETRY_TOPIC=log-retries
-      - REDIS_URL=redis://redis:6379
+      - PORT=${PLAYER_SERVICE_PORT:-3001}
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/playerdb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - LOG_API_URL=http://log-api-service:${LOG_API_SERVICE_PORT:-3004}
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_RETRY_TOPIC=${KAFKA_RETRY_TOPIC}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
       kafka:
         condition: service_healthy
@@ -56,13 +56,13 @@ services:
     build: ./score-service
     container_name: score-service
     ports:
-      - "3002:3002"
+      - "${SCORE_SERVICE_PORT:-3002}:${SCORE_SERVICE_PORT:-3002}"
     environment:
-      - PORT=3002
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/scoredb?retryWrites=true&w=majority&appName=Cluster0
-      - REDIS_URL=redis://redis:6379
-      - LOG_API_URL=http://log-api-service:3004
-      - KAFKA_BROKER=kafka:9092
+      - PORT=${SCORE_SERVICE_PORT:-3002}
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/scoredb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - REDIS_URL=${REDIS_URL}
+      - LOG_API_URL=http://log-api-service:${LOG_API_SERVICE_PORT:-3004}
+      - KAFKA_BROKER=${KAFKA_BROKER}
     depends_on:
       kafka:
         condition: service_healthy
@@ -77,12 +77,12 @@ services:
       dockerfile: Dockerfile
     container_name: leaderboard-service
     ports:
-      - "3003:3003"
+      - "${LEADERBOARD_SERVICE_PORT:-3003}:${LEADERBOARD_SERVICE_PORT:-3003}"
     environment:
-      - PORT=3003
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/leaderboarddb?retryWrites=true&w=majority&appName=Cluster0
-      - REDIS_URL=redis://redis:6379
-      - LOG_API_URL=http://log-api-service:3004
+      - PORT=${LEADERBOARD_SERVICE_PORT:-3003}
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/leaderboarddb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - REDIS_URL=${REDIS_URL}
+      - LOG_API_URL=http://log-api-service:${LOG_API_SERVICE_PORT:-3004}
     depends_on:
       - redis
       - log-api-service
@@ -91,15 +91,15 @@ services:
     build: ./log-api-service
     container_name: log-api-service
     ports:
-      - "3004:3004"
+      - "${LOG_API_SERVICE_PORT:-3004}:${LOG_API_SERVICE_PORT:-3004}"
     environment:
-      - PORT=3004
-      - KAFKA_BROKER=kafka:9092
-      - KAFKA_HIGH_PRIORITY_TOPIC=log-events-high
-      - KAFKA_LOW_PRIORITY_TOPIC=log-events-low
-      - REDIS_URL=redis://redis:6379
-      - LOG_BATCH_SIZE=50
-      - LOG_BATCH_TIMEOUT_MS=5000
+      - PORT=${LOG_API_SERVICE_PORT:-3004}
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_HIGH_PRIORITY_TOPIC=${KAFKA_HIGH_PRIORITY_TOPIC}
+      - KAFKA_LOW_PRIORITY_TOPIC=${KAFKA_LOW_PRIORITY_TOPIC}
+      - REDIS_URL=${REDIS_URL}
+      - LOG_BATCH_SIZE=${LOG_BATCH_SIZE:-50}
+      - LOG_BATCH_TIMEOUT_MS=${LOG_BATCH_TIMEOUT_MS:-5000}
     depends_on:
       kafka:
         condition: service_healthy
@@ -110,14 +110,14 @@ services:
     build: ./log-worker-service
     container_name: high-priority-log-worker
     environment:
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/logdb?retryWrites=true&w=majority&appName=Cluster0
-      - KAFKA_BROKER=kafka:9092
-      - KAFKA_LOG_TOPIC=log-events-high
-      - KAFKA_RETRY_TOPIC=log-retries
-      - KAFKA_CONSUMER_GROUP=high-priority-log-consumer-group
-      - MAX_CONCURRENT_WRITES=5
-      - MAX_WRITE_RATE_PER_SECOND=20
-      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/logdb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_LOG_TOPIC=${KAFKA_HIGH_PRIORITY_TOPIC}
+      - KAFKA_RETRY_TOPIC=${KAFKA_RETRY_TOPIC}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_HIGH_PRIORITY_CONSUMER_GROUP:-high-priority-log-consumer-group}
+      - MAX_CONCURRENT_WRITES=${MAX_CONCURRENT_WRITES_HIGH:-5}
+      - MAX_WRITE_RATE_PER_SECOND=${MAX_WRITE_RATE_PER_SECOND_HIGH:-20}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
       kafka:
         condition: service_healthy
@@ -128,14 +128,14 @@ services:
     build: ./log-worker-service
     container_name: low-priority-log-worker
     environment:
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/logdb?retryWrites=true&w=majority&appName=Cluster0
-      - KAFKA_BROKER=kafka:9092
-      - KAFKA_LOG_TOPIC=log-events-low
-      - KAFKA_RETRY_TOPIC=log-retries
-      - KAFKA_CONSUMER_GROUP=low-priority-log-consumer-group
-      - MAX_CONCURRENT_WRITES=3
-      - MAX_WRITE_RATE_PER_SECOND=10
-      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/logdb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_LOG_TOPIC=${KAFKA_LOW_PRIORITY_TOPIC}
+      - KAFKA_RETRY_TOPIC=${KAFKA_RETRY_TOPIC}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_LOW_PRIORITY_CONSUMER_GROUP:-low-priority-log-consumer-group}
+      - MAX_CONCURRENT_WRITES=${MAX_CONCURRENT_WRITES_LOW:-3}
+      - MAX_WRITE_RATE_PER_SECOND=${MAX_WRITE_RATE_PER_SECOND_LOW:-10}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
       kafka:
         condition: service_healthy
@@ -146,13 +146,13 @@ services:
     build: ./log-retry-worker-service
     container_name: log-retry-worker
     environment:
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/logdb?retryWrites=true&w=majority&appName=Cluster0
-      - KAFKA_BROKER=kafka:9092
-      - KAFKA_RETRY_TOPIC=log-retries
-      - KAFKA_DLQ_TOPIC=log-dlq
-      - KAFKA_CONSUMER_GROUP=retry-group
-      - MAX_RETRY_ATTEMPTS=3
-      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/logdb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_RETRY_TOPIC=${KAFKA_RETRY_TOPIC}
+      - KAFKA_DLQ_TOPIC=${KAFKA_DLQ_TOPIC}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_RETRY_CONSUMER_GROUP:-retry-group}
+      - MAX_RETRY_ATTEMPTS=${MAX_RETRY_ATTEMPTS:-3}
+      - REDIS_URL=${REDIS_URL}
     depends_on:
       kafka:
         condition: service_healthy
@@ -163,10 +163,10 @@ services:
     build: ./dlq-service
     container_name: log-dlq-worker
     environment:
-      - MONGO_URI=mongodb+srv://orenpartovi:XaWhBfYn8xMTmdXO@cluster0.qgwsi10.mongodb.net/dlqdb?retryWrites=true&w=majority&appName=Cluster0
-      - KAFKA_BROKER=kafka:9092
-      - KAFKA_DLQ_TOPIC=log-dlq
-      - KAFKA_CONSUMER_GROUP=dlq-group
+      - MONGO_URI=mongodb+srv://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_CLUSTER}/dlqdb?retryWrites=true&w=majority&appName=${MONGO_APP_NAME}
+      - KAFKA_BROKER=${KAFKA_BROKER}
+      - KAFKA_DLQ_TOPIC=${KAFKA_DLQ_TOPIC}
+      - KAFKA_CONSUMER_GROUP=${KAFKA_DLQ_CONSUMER_GROUP:-dlq-group}
     depends_on:
       kafka:
         condition: service_healthy
