@@ -5,27 +5,28 @@ import { KafkaProducer } from "../producers/kafka.producer";
 import { IKafkaProducer, IRateLimiter, IRetryConsumer, IRetryService } from "../interfaces/service.interfaces";
 import { env } from "../config/env";
 import { LOG_CONSTANTS } from "../constants/log.constants";
+import { CONTAINER_SERVICES, CONTAINER_ERRORS } from "../constants/container.constants";
 
 class DIContainer {
   private services: Map<string, any> = new Map();
 
   constructor() {
     // Register default implementations
-    this.register('rateLimiter', new RedisTokenBucketRateLimiter(
+    this.register(CONTAINER_SERVICES.RATE_LIMITER, new RedisTokenBucketRateLimiter(
       LOG_CONSTANTS.RATE_LIMITER.KEY, 
       env.maxWriteRatePerSecond, 
       env.maxWriteRatePerSecond
     ));
     
-    this.register('kafkaProducer', new KafkaProducer());
+    this.register(CONTAINER_SERVICES.KAFKA_PRODUCER, new KafkaProducer());
     
-    this.register('retryService', new RetryService(
-      this.get<IKafkaProducer>('kafkaProducer'),
-      this.get<IRateLimiter>('rateLimiter')
+    this.register(CONTAINER_SERVICES.RETRY_SERVICE, new RetryService(
+      this.get<IKafkaProducer>(CONTAINER_SERVICES.KAFKA_PRODUCER),
+      this.get<IRateLimiter>(CONTAINER_SERVICES.RATE_LIMITER)
     ));
     
-    this.register('retryConsumer', new RetryConsumer(
-      this.get<IRetryService>('retryService')
+    this.register(CONTAINER_SERVICES.RETRY_CONSUMER, new RetryConsumer(
+      this.get<IRetryService>(CONTAINER_SERVICES.RETRY_SERVICE)
     ));
   }
 
@@ -36,7 +37,7 @@ class DIContainer {
   get<T>(name: string): T {
     const service = this.services.get(name);
     if (!service) {
-      throw new Error(`Service ${name} not found in container`);
+      throw new Error(CONTAINER_ERRORS.SERVICE_NOT_FOUND(name));
     }
     return service as T;
   }

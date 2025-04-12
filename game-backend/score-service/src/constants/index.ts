@@ -5,3 +5,4 @@ export * from './general.constants';
 export * from './error.constants';
 export * from './redis.constants';
 export * from './container.constants';
+export * from './http.constants';

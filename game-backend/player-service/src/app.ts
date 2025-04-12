@@ -9,6 +9,8 @@ import { PlayerController } from './controllers/player.controller';
 import { createPlayerSchema, updatePlayerSchema } from './validations/player.validation';
 import { validate } from './middlewares/validate';
 import { serviceFactory } from './factories/service.factory';
+import { HTTP_STATUS } from './constants/http.constants';
+import { GENERAL } from './constants/general.constants';
 
 const app = express();
 
@@ -119,7 +121,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(errorHandler);
 
 app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'Player Service is healthy 💪' });
+  res.status(HTTP_STATUS.OK).json({ status: GENERAL.HEALTH_MESSAGE });
 });
 
 export default app;
