@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { LeaderboardController } from '../controllers/leaderboard.controller';
+import { container } from '../container/di-container';
+import { ILeaderboardService } from '../interfaces/service.interfaces';
 
 const router = Router();
-const controller = new LeaderboardController();
+const leaderboardService = container.get<ILeaderboardService>('leaderboardService');
+const controller = new LeaderboardController(leaderboardService);
 
 /**
  * @swagger

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { LogController } from '../controllers/log.controller';
-
+import { container } from '../container/di-container';
+import { IRedisBatchService } from '../interfaces/service.interfaces';
 
 const router = Router();
-const controller = new LogController();
+const batchService = container.get<IRedisBatchService>('redisBatchService');
+const controller = new LogController(batchService);
 
 /**
  * @swagger

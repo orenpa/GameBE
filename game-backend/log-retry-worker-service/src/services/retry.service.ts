@@ -1,27 +1,26 @@
-import { Kafka } from 'kafkajs';
 import { env } from '../config/env';
 import { LogModel } from '../models/log.model';
 import { limitConcurrency } from '../utils/limit';
 import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
 import { LOG_CONSTANTS, LOG_MESSAGES } from '../constants/log.constants';
 import { RetryLog } from '../interfaces/retry.interface';
+import { IRetryService, IRateLimiter, IKafkaProducer } from '../interfaces/service.interfaces';
+import { KafkaProducer } from '../producers/kafka.producer';
 
-export class RetryService {
-  private producer;
-  // Use Redis-based rate limiter for distributed rate limiting
-  private rateLimiter = new RedisTokenBucketRateLimiter(
-    LOG_CONSTANTS.RATE_LIMITER.KEY,
-    env.maxWriteRatePerSecond, 
-    env.maxWriteRatePerSecond
-  );
+export class RetryService implements IRetryService {
+  private producer: IKafkaProducer;
+  private rateLimiter: IRateLimiter;
 
-  constructor() {
-    const kafka = new Kafka({
-      clientId: LOG_CONSTANTS.CLIENT_IDS.PRODUCER,
-      brokers: [env.kafkaBroker],
-    });
-
-    this.producer = kafka.producer();
+  constructor(
+    producer: IKafkaProducer = new KafkaProducer(),
+    rateLimiter: IRateLimiter = new RedisTokenBucketRateLimiter(
+      LOG_CONSTANTS.RATE_LIMITER.KEY,
+      env.maxWriteRatePerSecond, 
+      env.maxWriteRatePerSecond
+    )
+  ) {
+    this.producer = producer;
+    this.rateLimiter = rateLimiter;
     this.producer.connect();
   }
 
@@ -68,5 +67,9 @@ export class RetryService {
       messages: [{ key: log.playerId, value: JSON.stringify(log) }],
     });
     console.log(LOG_MESSAGES.INFO.SENT_TO_DLQ(log.playerId));
+  }
+
+  async shutdown(): Promise<void> {
+    await this.producer.disconnect();
   }
 }

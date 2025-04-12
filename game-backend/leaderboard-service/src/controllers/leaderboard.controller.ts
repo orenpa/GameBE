@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { LeaderboardService } from '../services/leaderboard.service';
 import { LEADERBOARD } from '../constants/leaderboard.constants';
+import { ILeaderboardService } from '../interfaces/service.interfaces';
 
 export class LeaderboardController {
-  private leaderboardService: LeaderboardService;
+  private leaderboardService: ILeaderboardService;
 
-  constructor() {
-    this.leaderboardService = new LeaderboardService();
+  constructor(leaderboardService: ILeaderboardService = new LeaderboardService()) {
+    this.leaderboardService = leaderboardService;
   }
 
   getTopPlayers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -20,5 +21,4 @@ export class LeaderboardController {
       next(error);
     }
   };
-  
 }

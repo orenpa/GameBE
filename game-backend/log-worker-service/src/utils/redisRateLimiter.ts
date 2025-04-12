@@ -1,11 +1,12 @@
 import redis from '../config/redis';
 import { REDIS_CONFIG, REDIS_PREFIXES } from '../constants/redis.constants';
+import { IRateLimiter } from '../interfaces/service.interfaces';
 
 /**
  * A distributed token bucket rate limiter that uses Redis for coordination across multiple instances.
  * This ensures that all worker instances share the same rate limit.
  */
-export class RedisTokenBucketRateLimiter {
+export class RedisTokenBucketRateLimiter implements IRateLimiter {
   private readonly key: string;
   private readonly capacity: number;
   private readonly refillRatePerSecond: number;

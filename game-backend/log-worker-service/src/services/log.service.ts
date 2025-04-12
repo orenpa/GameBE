@@ -1,39 +1,35 @@
 import { LogModel } from '../models/log.model';
 import { RedisTokenBucketRateLimiter } from '../utils/redisRateLimiter';
-import { Kafka } from 'kafkajs';
 import { env } from '../config/env';
 import { limitConcurrency } from '../utils/limit';
 import { LOG_MESSAGES, LOG_CONFIG } from '../constants/log.constants';
 import { REDIS_KEYS } from '../constants/redis.constants';
+import { ILogService, IRateLimiter, IKafkaProducer, LogData } from '../interfaces/service.interfaces';
+import { KafkaProducer } from '../producers/kafka.producer';
 
-interface LogInput {
-  playerId: string;
-  logData: string;
-}
-
-export class LogService {
-  private buffer: LogInput[] = [];
+export class LogService implements ILogService {
+  private buffer: LogData[] = [];
   private readonly batchSize = LOG_CONFIG.SERVICE.BATCH_SIZE;
   private readonly flushInterval = LOG_CONFIG.SERVICE.FLUSH_INTERVAL;
   private flushTimer: NodeJS.Timeout;
-  private kafkaProducer = new Kafka({
-    clientId: LOG_CONFIG.CONSUMER.CLIENT_ID,
-    brokers: [env.kafkaBroker],
-  }).producer();
-  
-  // Use Redis-based rate limiter for distributed rate limiting
-  private readonly rateLimiter = new RedisTokenBucketRateLimiter(
-    REDIS_KEYS.MONGODB.WRITES,
-    env.maxWriteRatePerSecond,
-    env.maxWriteRatePerSecond
-  );
+  private readonly kafkaProducer: IKafkaProducer;
+  private readonly rateLimiter: IRateLimiter;
 
-  constructor() {
+  constructor(
+    kafkaProducer: IKafkaProducer = new KafkaProducer(),
+    rateLimiter: IRateLimiter = new RedisTokenBucketRateLimiter(
+      REDIS_KEYS.MONGODB.WRITES,
+      env.maxWriteRatePerSecond,
+      env.maxWriteRatePerSecond
+    )
+  ) {
+    this.kafkaProducer = kafkaProducer;
+    this.rateLimiter = rateLimiter;
     this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
     this.kafkaProducer.connect();
   }
 
-  async saveLog(log: LogInput): Promise<void> {
+  async saveLog(log: LogData): Promise<void> {
     this.buffer.push(log);
     if (this.buffer.length >= this.batchSize) {
       await this.flush();
@@ -80,5 +76,6 @@ export class LogService {
   async shutdown(): Promise<void> {
     clearInterval(this.flushTimer);
     await this.flush();
+    await this.kafkaProducer.disconnect();
   }
 }

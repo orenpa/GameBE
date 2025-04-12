@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { PlayerService } from '../services/player.service';
+import { IPlayerService } from '../interfaces/service.interfaces';
 
 export class PlayerController {
-  private playerService: PlayerService;
+  private playerService: IPlayerService;
 
-  constructor() {
-    this.playerService = new PlayerService();
+  constructor(playerService: IPlayerService = new PlayerService()) {
+    this.playerService = playerService;
   }
 
   createPlayer = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

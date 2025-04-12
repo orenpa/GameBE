@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { ScoreService } from '../services/score.service';
-
+import { IScoreService } from '../interfaces/service.interfaces';
 
 export class ScoreController {
-  private scoreService: ScoreService;
+  private scoreService: IScoreService;
 
-  constructor() {
-    this.scoreService = new ScoreService();
+  constructor(scoreService: IScoreService = new ScoreService()) {
+    this.scoreService = scoreService;
   }
 
   createScore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

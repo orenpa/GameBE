@@ -2,9 +2,12 @@ import { Router } from 'express';
 import { PlayerController } from '../controllers/player.controller';
 import { createPlayerSchema, updatePlayerSchema } from '../validations/player.validation';
 import { validate } from '../middlewares/validate';
+import { container } from '../container/di-container';
+import { IPlayerService } from '../interfaces/service.interfaces';
 
 const router = Router();
-const controller = new PlayerController();
+const playerService = container.get<IPlayerService>('playerService');
+const controller = new PlayerController(playerService);
 
 /**
  * @swagger

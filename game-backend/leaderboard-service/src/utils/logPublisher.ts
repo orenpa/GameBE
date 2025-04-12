@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { env } from '../config/env';
 import { LOG_PUBLISHER_MESSAGES } from '../constants/log.constants';
+import { ILogPublisher } from '../interfaces/service.interfaces';
 
 interface LogPayload {
   playerId: string;
@@ -8,7 +9,7 @@ interface LogPayload {
   logType?: 'info' | 'error' | 'crash' | 'critical';
 }
 
-export class LogPublisher {
+export class LogPublisher implements ILogPublisher {
   private logApiUrl: string;
 
   constructor() {

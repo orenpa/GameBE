@@ -1,12 +1,13 @@
 import mongoose from 'mongoose';
 import { env } from './config/env';
-import { LogConsumer } from './consumers/log.consumer';
-import { LogService } from './services/log.service';
 import redis from './config/redis';
 import { SYSTEM_MESSAGES } from './constants/system.constants';
+import { serviceFactory } from './factories/service.factory';
+import { ILogConsumer, ILogService } from './interfaces/service.interfaces';
 
-const logService = new LogService();
-const consumer = new LogConsumer(logService);
+// Create services using the factory
+const logService: ILogService = serviceFactory.createLogService();
+const consumer: ILogConsumer = serviceFactory.createLogConsumer();
 
 const startWorker = async () => {
   try {

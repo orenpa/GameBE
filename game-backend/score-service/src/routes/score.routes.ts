@@ -2,9 +2,12 @@ import { Router } from 'express';
 import { ScoreController } from '../controllers/score.controller';
 import { createScoreSchema } from '../validations/score.validation';
 import { validate } from '../middlewares/validate';
+import { container } from '../container/di-container';
+import { IScoreService } from '../interfaces/service.interfaces';
 
 const router = Router();
-const controller = new ScoreController();
+const scoreService = container.get<IScoreService>('scoreService');
+const controller = new ScoreController(scoreService);
 
 /**
  * @swagger
