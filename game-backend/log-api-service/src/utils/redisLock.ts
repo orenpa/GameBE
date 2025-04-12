@@ -1,12 +1,13 @@
 import redis from '../config/redis';
 import { v4 as uuidv4 } from 'uuid';
+import { IRedisLock } from '../interfaces/service.interfaces';
 
 /**
  * A distributed lock implementation using Redis.
  * This ensures that only one process can perform an operation at a time,
  * preventing race conditions in a distributed environment.
  */
-export class RedisLock {
+export class RedisLock implements IRedisLock {
   private readonly lockKey: string;
   private readonly lockValue: string;
   private readonly expirySeconds: number;

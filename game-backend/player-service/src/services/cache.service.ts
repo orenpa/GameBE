@@ -2,8 +2,9 @@ import redisClient from '../config/redis';
 import { IPlayer } from '../models/player.model';
 import { CACHE } from '../constants/cache.constants';
 import { ERROR_MESSAGES } from '../constants/error.constants';
+import { ICacheService } from '../interfaces/service.interfaces';
 
-export class CacheService {
+export class CacheService implements ICacheService {
   async getPlayer(playerId: string): Promise<IPlayer | null> {
     try {
       const cachedPlayer = await redisClient.get(`${CACHE.PREFIX.PLAYER}${playerId}`);

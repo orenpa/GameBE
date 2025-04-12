@@ -17,4 +17,8 @@ export const ERROR_MESSAGES = {
     MISSING_LOG_API_URL: 'LOG_API_URL is not defined',
     MISSING_REDIS_URL: 'REDIS_URL is not defined',
   },
+  VALIDATION: {
+    FAILED: 'Validation failed',
+    INVALID_ID: 'Invalid ID format',
+  },
 }; 

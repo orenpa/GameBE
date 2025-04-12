@@ -1,43 +1,46 @@
-import Score, { IScore } from '../models/score.model';
-import redis from '../config/redis';
-import { LogPublisher } from '../utils/logPublisher';
+import { IScore } from '../models/score.model';
 import { SYSTEM_ACTOR, LOG_MESSAGES } from '../constants/log.constants';
 import { LogType } from '../constants/log.enums';
 import { GENERAL } from '../constants/general.constants';
-import { REDIS_KEYS, REDIS_CHANNELS, REDIS_OPTIONS } from '../constants/redis.constants';
-import { ERROR_MESSAGES } from '../constants/error.constants';
+import { ILogPublisher, ICacheService, IScoreService } from '../interfaces/service.interfaces';
+import { IScoreRepository, ScoreRepository } from '../repositories/score.repository';
+import { LogPublisher } from '../utils/logPublisher';
+import { CacheService } from './cache.service';
 
-export class ScoreService {
-  private logPublisher: LogPublisher;
+export class ScoreService implements IScoreService {
+  private logPublisher: ILogPublisher;
+  private cacheService: ICacheService;
+  private scoreRepository: IScoreRepository;
 
-  constructor() {
-    this.logPublisher = new LogPublisher();
+  constructor(
+    logPublisher: ILogPublisher = new LogPublisher(),
+    cacheService: ICacheService = new CacheService(),
+    scoreRepository: IScoreRepository = new ScoreRepository()
+  ) {
+    this.logPublisher = logPublisher;
+    this.cacheService = cacheService;
+    this.scoreRepository = scoreRepository;
   }
 
   async createScore(data: Partial<IScore>): Promise<IScore> {
     try {
-      const scoreDoc = new Score(data);
-      const saved = await scoreDoc.save();
+      const score = await this.scoreRepository.create(data);
 
-      const { playerId, score } = saved;
+      const { playerId } = score;
+      const scoreValue = score.score;
 
-      if (playerId && typeof score === 'number') {
-        await redis.zAdd(REDIS_KEYS.GLOBAL_LEADERBOARD, {
-          score,
-          value: playerId,
-        });
-
-        // Publish score update event
-        await this.publishScoreUpdate(playerId, score);
+      if (playerId && typeof scoreValue === 'number') {
+        await this.cacheService.addToLeaderboard(playerId, scoreValue);
+        await this.cacheService.publishScoreUpdate(playerId, scoreValue);
       }
 
       await this.logPublisher.publish({
         playerId: String(playerId),
-        logData: LOG_MESSAGES.SCORE.SUBMITTED(score),
+        logData: LOG_MESSAGES.SCORE.SUBMITTED(scoreValue),
         logType: LogType.INFO,
       });
 
-      return saved;
+      return score;
     } catch (error: any) {
       await this.logPublisher.publish({
         playerId: data.playerId || GENERAL.UNKNOWN_PLAYER_ID,
@@ -50,12 +53,7 @@ export class ScoreService {
 
   async getTopScores(limit = 10): Promise<{ playerId: string; score: number }[]> {
     try {
-      const top = await redis.zRangeWithScores(
-        REDIS_KEYS.GLOBAL_LEADERBOARD, 
-        '0', 
-        String(limit - 1), 
-        { REV: true }
-      );
+      const top = await this.cacheService.getTopScores(limit);
 
       await this.logPublisher.publish({
         playerId: SYSTEM_ACTOR,
@@ -63,10 +61,7 @@ export class ScoreService {
         logType: LogType.INFO,
       });
 
-      return top.map(({ value, score }) => ({
-        playerId: value,
-        score,
-      }));
+      return top;
     } catch (error: any) {
       await this.logPublisher.publish({
         playerId: SYSTEM_ACTOR,
@@ -74,14 +69,6 @@ export class ScoreService {
         logType: LogType.ERROR,
       });
       throw error;
-    }
-  }
-
-  private async publishScoreUpdate(playerId: string, score: number): Promise<void> {
-    try {
-      await redis.publish(REDIS_CHANNELS.SCORE_UPDATES, JSON.stringify({ playerId, score }));
-    } catch (error) {
-      console.error(ERROR_MESSAGES.REDIS.PUBLISH_ERROR, error);
     }
   }
 }

@@ -1,24 +1,29 @@
-import mongoose from 'mongoose';
-import { LogPublisher } from '../utils/logPublisher';
 import { LogType } from '../constants/log.enums';
 import { SYSTEM_ACTOR } from '../constants/log.constants';
-import redis from '../config/redis';
-import { CACHE_KEYS, CACHE_CONFIG, CACHE_MESSAGES } from '../constants/cache.constants';
-import { LEADERBOARD, LOG_MESSAGES, ERROR_MESSAGES } from '../constants/leaderboard.constants';
-import { MONGO_QUERY } from '../constants/mongo.constants';
-
-const Score = mongoose.connection.collection(LEADERBOARD.COLLECTION_NAME);
+import { LEADERBOARD, LOG_MESSAGES } from '../constants/leaderboard.constants';
+import { ILogPublisher, ICacheService, ILeaderboardRepository, ILeaderboardService } from '../interfaces/service.interfaces';
+import { LogPublisher } from '../utils/logPublisher';
+import { CacheService } from './cache.service';
+import { LeaderboardRepository } from '../repositories/leaderboard.repository';
 
 export interface LeaderboardEntry {
   playerId: string;
   totalScore: number;
 }
 
-export class LeaderboardService {
-  private logPublisher: LogPublisher;
+export class LeaderboardService implements ILeaderboardService {
+  private logPublisher: ILogPublisher;
+  private cacheService: ICacheService;
+  private leaderboardRepository: ILeaderboardRepository;
 
-  constructor() {
-    this.logPublisher = new LogPublisher();
+  constructor(
+    logPublisher: ILogPublisher = new LogPublisher(),
+    cacheService: ICacheService = new CacheService(),
+    leaderboardRepository: ILeaderboardRepository = new LeaderboardRepository()
+  ) {
+    this.logPublisher = logPublisher;
+    this.cacheService = cacheService;
+    this.leaderboardRepository = leaderboardRepository;
   }
 
   async getTopPlayers(page: number = LEADERBOARD.DEFAULT_PAGE, limit: number = LEADERBOARD.DEFAULT_LIMIT): Promise<LeaderboardEntry[]> {
@@ -26,7 +31,7 @@ export class LeaderboardService {
 
     try {
       // Try to get from cache first
-      const cachedResult = await this.getFromCache(page, limit);
+      const cachedResult = await this.cacheService.getFromCache(page, limit);
       if (cachedResult) {
         await this.logPublisher.publish({
           playerId: SYSTEM_ACTOR,
@@ -37,10 +42,10 @@ export class LeaderboardService {
       }
 
       // If not in cache, get from MongoDB
-      const result = await this.getFromMongoDB(page, limit, skip);
+      const result = await this.leaderboardRepository.getTopPlayers(page, limit, skip);
 
       // Update cache
-      await this.updateCache(page, limit, result);
+      await this.cacheService.updateCache(page, limit, result);
 
       await this.logPublisher.publish({
         playerId: SYSTEM_ACTOR,
@@ -60,60 +65,8 @@ export class LeaderboardService {
     }
   }
 
-  private async getFromCache(page: number, limit: number): Promise<LeaderboardEntry[] | null> {
-    try {
-      const cached = await redis.get(CACHE_KEYS.LEADERBOARD_PAGE(page, limit));
-      return cached ? JSON.parse(cached) : null;
-    } catch (error) {
-      console.error(ERROR_MESSAGES.CACHE_READ, error);
-      return null;
-    }
-  }
-
-  private async updateCache(page: number, limit: number, data: LeaderboardEntry[]): Promise<void> {
-    try {
-      await redis.set(
-        CACHE_KEYS.LEADERBOARD_PAGE(page, limit),
-        JSON.stringify(data),
-        { EX: CACHE_CONFIG.LEADERBOARD_TTL }
-      );
-    } catch (error) {
-      console.error(ERROR_MESSAGES.CACHE_UPDATE, error);
-    }
-  }
-
-  private async getFromMongoDB(page: number, limit: number, skip: number): Promise<LeaderboardEntry[]> {
-    return await Score.aggregate<LeaderboardEntry>([
-      {
-        $group: {
-          _id: '$playerId',
-          totalScore: { $sum: '$score' },
-        },
-      },
-      {
-        $sort: { totalScore: MONGO_QUERY.SORT.DESC, _id: MONGO_QUERY.SORT.ASC },
-      },
-      { $skip: skip },
-      { $limit: limit },
-      {
-        $project: {
-          _id: MONGO_QUERY.PROJECTION.EXCLUDE_ID,
-          playerId: '$_id',
-          totalScore: MONGO_QUERY.PROJECTION.INCLUDE,
-        },
-      },
-    ]).toArray();
-  }
-
   // Method to invalidate cache (called by Redis Pub/Sub)
   async invalidateCache(): Promise<void> {
-    try {
-      const keys = await redis.keys(`${CACHE_CONFIG.CACHE_PREFIX}*`);
-      if (keys.length > 0) {
-        await redis.del(keys);
-      }
-    } catch (error) {
-      console.error(ERROR_MESSAGES.CACHE_INVALIDATION, error);
-    }
+    await this.cacheService.invalidateCache();
   }
 }

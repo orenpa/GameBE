@@ -1,8 +1,9 @@
 import { Kafka, Producer } from 'kafkajs';
 import { env } from '../config/env';
 import { KAFKA_CONFIG, KAFKA_MESSAGES } from '../constants/kafka.constants';
+import { IKafkaProducer, LogEntry } from '../interfaces/service.interfaces';
 
-export class KafkaProducer {
+export class KafkaProducer implements IKafkaProducer {
   private producer: Producer;
 
   constructor() {
@@ -19,7 +20,7 @@ export class KafkaProducer {
     await this.producer.connect();
   }
 
-  public async sendLogToTopic(topic: string, log: { playerId: string; logData: string; logType?: string }) {
+  public async sendLogToTopic(topic: string, log: LogEntry): Promise<void> {
     try {
       await this.producer.send({
         topic,

@@ -3,12 +3,13 @@ import { env } from '../config/env';
 import { LogService } from '../services/log.service';
 import { LOG_MESSAGES, LOG_CONFIG } from '../constants/log.constants';
 import { CONFIG } from '../constants/config.constants';
+import { ILogConsumer, ILogService } from '../interfaces/service.interfaces';
 
-export class LogConsumer {
-  private logService: LogService;
+export class LogConsumer implements ILogConsumer {
+  private logService: ILogService;
   private consumer: Consumer;
 
-  constructor(logService: LogService) {
+  constructor(logService: ILogService) {
     this.logService = logService;
 
     const kafka = new Kafka({

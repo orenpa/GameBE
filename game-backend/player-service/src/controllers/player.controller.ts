@@ -1,17 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { PlayerService } from '../services/player.service';
+import { IPlayerService } from '../interfaces/service.interfaces';
+import { serviceFactory } from '../factories/service.factory';
+import { HTTP_STATUS } from '../constants/http.constants';
+import { LOG_MESSAGES } from '../constants/log.constants';
 
 export class PlayerController {
-  private playerService: PlayerService;
+  private playerService: IPlayerService;
 
-  constructor() {
-    this.playerService = new PlayerService();
+  constructor(playerService: IPlayerService = serviceFactory.createPlayerService()) {
+    this.playerService = playerService;
   }
 
   createPlayer = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const player = await this.playerService.createPlayer(req.body);
-      res.status(201).json(player);
+      res.status(HTTP_STATUS.CREATED).json(player);
     } catch (err) {
       next(err);
     }
@@ -21,10 +25,10 @@ export class PlayerController {
     try {
       const player = await this.playerService.getPlayerById(req.params.playerId);
       if (!player) {
-        res.status(404).json({ message: 'Player not found' });
+        res.status(HTTP_STATUS.NOT_FOUND).json({ message: LOG_MESSAGES.PLAYER.NOT_FOUND });
         return;
       }
-      res.json(player);
+      res.status(HTTP_STATUS.OK).json(player);
     } catch (err) {
       next(err);
     }
@@ -34,10 +38,10 @@ export class PlayerController {
     try {
       const player = await this.playerService.updatePlayer(req.params.playerId, req.body);
       if (!player) {
-        res.status(404).json({ message: 'Player not found' });
+        res.status(HTTP_STATUS.NOT_FOUND).json({ message: LOG_MESSAGES.PLAYER.NOT_FOUND });
         return;
       }
-      res.json(player);
+      res.status(HTTP_STATUS.OK).json(player);
     } catch (err) {
       next(err);
     }
@@ -47,10 +51,10 @@ export class PlayerController {
     try {
       const result = await this.playerService.deletePlayer(req.params.playerId);
       if (!result) {
-        res.status(404).json({ message: 'Player not found' });
+        res.status(HTTP_STATUS.NOT_FOUND).json({ message: LOG_MESSAGES.PLAYER.NOT_FOUND });
         return;
       }
-      res.status(204).send();
+      res.status(HTTP_STATUS.NO_CONTENT).send();
     } catch (err) {
       next(err);
     }

@@ -1,18 +1,21 @@
 import { Kafka, Consumer } from 'kafkajs';
 import { env } from '../config/env';
-import { DlqLogModel } from '../models/dlq-log.model';
 import { DLQ_MESSAGES, DLQ_CONFIG } from '../constants/dlq.constants';
+import { IDlqConsumer, IDlqRepository, DlqLogEntry } from '../interfaces/service.interfaces';
+import { DlqRepository } from '../repositories/dlq.repository';
 
-export class DlqConsumer {
+export class DlqConsumer implements IDlqConsumer {
   private consumer: Consumer;
+  private dlqRepository: IDlqRepository;
 
-  constructor() {
+  constructor(dlqRepository: IDlqRepository = new DlqRepository()) {
     const kafka = new Kafka({
       clientId: DLQ_CONFIG.CLIENT_ID,
       brokers: [env.kafkaBroker],
     });
 
     this.consumer = kafka.consumer({ groupId: env.consumerGroup });
+    this.dlqRepository = dlqRepository;
   }
 
   public async start(): Promise<void> {
@@ -28,9 +31,8 @@ export class DlqConsumer {
         const raw = message.value.toString();
 
         try {
-          const parsed = JSON.parse(raw);
-          await DlqLogModel.create(parsed);
-          console.log(DLQ_MESSAGES.LOG.STORED(parsed.playerId, parsed.retryCount));
+          const parsed = JSON.parse(raw) as DlqLogEntry;
+          await this.dlqRepository.saveDlqLog(parsed);
         } catch (error) {
           console.error(DLQ_MESSAGES.LOG.INSERT_ERROR, raw, error);
         }

@@ -1,9 +1,11 @@
 import mongoose from 'mongoose';
 import { env } from './config/env';
-import { DlqConsumer } from './consumers/dlq.consumer';
 import { SYSTEM_MESSAGES } from './constants/system.constants';
+import { serviceFactory } from './factories/service.factory';
+import { IDlqConsumer } from './interfaces/service.interfaces';
 
-const consumer = new DlqConsumer();
+// Create services using the factory
+const consumer: IDlqConsumer = serviceFactory.createDlqConsumer();
 
 const start = async () => {
   try {

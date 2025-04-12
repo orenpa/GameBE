@@ -2,12 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import { RedisBatchService } from '../services/redis-batch.service';
 import { ERROR_MESSAGES } from '../constants/error.constants';
 import { LOG_MESSAGES } from '../constants/log.constants';
+import { IRedisBatchService } from '../interfaces/service.interfaces';
 
 export class LogController {
-  private batchService: RedisBatchService;
+  private batchService: IRedisBatchService;
 
-  constructor() {
-    this.batchService = new RedisBatchService();
+  constructor(batchService: IRedisBatchService = new RedisBatchService()) {
+    this.batchService = batchService;
   }
 
   receiveLog = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

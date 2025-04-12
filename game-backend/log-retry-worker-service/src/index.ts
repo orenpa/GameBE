@@ -1,10 +1,13 @@
 import mongoose from 'mongoose';
 import { env } from './config/env';
-import { RetryConsumer } from './consumers/retry.consumer';
 import redis from './config/redis';
 import { SYSTEM_MESSAGES } from './constants/system.constants';
+import { serviceFactory } from './factories/service.factory';
+import { IRetryConsumer, IRetryService } from './interfaces/service.interfaces';
 
-const consumer = new RetryConsumer();
+// Create services using the factory
+const retryService: IRetryService = serviceFactory.createRetryService();
+const consumer: IRetryConsumer = serviceFactory.createRetryConsumer();
 
 const start = async () => {
   try {
@@ -22,6 +25,7 @@ const start = async () => {
 const shutdown = async () => {
   console.log(SYSTEM_MESSAGES.SHUTDOWN.STARTED);
   await consumer.disconnect();
+  await retryService.shutdown();
   await mongoose.disconnect();
   await redis.disconnect();
   console.log(SYSTEM_MESSAGES.SHUTDOWN.COMPLETE);

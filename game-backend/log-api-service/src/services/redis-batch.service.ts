@@ -5,6 +5,7 @@ import { LOG_TYPES, LOG_KEYWORDS } from '../constants/log.constants';
 import { REDIS_KEYS, BATCH_SCORES, BATCH_TIMES, REDIS_MESSAGES } from '../constants/redis.constants';
 import { RedisLock } from '../utils/redisLock';
 import { hostname } from 'os';
+import { IKafkaProducer, IRedisBatchService, LogEntry } from '../interfaces/service.interfaces';
 
 // Generate a unique worker ID for this instance
 const WORKER_ID = `${hostname()}-${process.pid}-${Date.now()}`;
@@ -22,8 +23,8 @@ interface ScoredLog {
  * 3. Prevention of starvation for lower priority logs
  * 4. Distributed worker coordination via Redis locks
  */
-export class RedisBatchService {
-  private readonly kafkaProducer: KafkaProducer;
+export class RedisBatchService implements IRedisBatchService {
+  private readonly kafkaProducer: IKafkaProducer;
   private readonly queueKey = REDIS_KEYS.LOGS_QUEUE;
   private readonly batchSize: number;
   private readonly flushIntervalMs: number;
@@ -31,8 +32,8 @@ export class RedisBatchService {
   private isProcessing: boolean = false;
   private lastProcessTime: number = Date.now();
 
-  constructor() {
-    this.kafkaProducer = new KafkaProducer();
+  constructor(kafkaProducer: IKafkaProducer = new KafkaProducer()) {
+    this.kafkaProducer = kafkaProducer;
     this.batchSize = env.logBatchSize;
     this.flushIntervalMs = env.logBatchTimeoutMs;
     
@@ -49,11 +50,7 @@ export class RedisBatchService {
   /**
    * Adds a log to the Redis priority queue with appropriate score
    */
-  public async addLog(log: { 
-    playerId: string;
-    logData: string;
-    logType?: string;
-  }): Promise<void> {
+  public async addLog(log: LogEntry): Promise<void> {
     // Calculate priority score (higher = more priority)
     const score = this.calculatePriorityScore(log);
     
@@ -81,11 +78,7 @@ export class RedisBatchService {
    * Calculate priority score based on log type and content
    * Higher scores get processed first
    */
-  private calculatePriorityScore(log: { 
-    playerId: string;
-    logData: string;
-    logType?: string;
-  }): number {
+  private calculatePriorityScore(log: LogEntry): number {
     let score = BATCH_SCORES.DEFAULT;
     
     // Base score on log type

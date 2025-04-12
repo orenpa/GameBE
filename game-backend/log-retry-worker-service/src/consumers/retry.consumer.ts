@@ -3,19 +3,20 @@ import { env } from '../config/env';
 import { RetryService } from '../services/retry.service';
 import { LOG_CONSTANTS, LOG_MESSAGES } from '../constants/log.constants';
 import { RetryLog } from '../interfaces/retry.interface';
+import { IRetryConsumer, IRetryService } from '../interfaces/service.interfaces';
 
-export class RetryConsumer {
+export class RetryConsumer implements IRetryConsumer {
   private consumer: Consumer;
-  private retryService: RetryService;
+  private retryService: IRetryService;
 
-  constructor() {
+  constructor(retryService: IRetryService = new RetryService()) {
     const kafka = new Kafka({
       clientId: LOG_CONSTANTS.CLIENT_IDS.CONSUMER,
       brokers: [env.kafkaBroker],
     });
 
     this.consumer = kafka.consumer({ groupId: env.consumerGroup });
-    this.retryService = new RetryService();
+    this.retryService = retryService;
   }
 
   public async start(): Promise<void> {

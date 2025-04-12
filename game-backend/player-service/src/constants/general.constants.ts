@@ -4,6 +4,8 @@ export const GENERAL = {
   MONGO_DB_ERROR: {
     DUPLICATE_KEY: 11000,
   },
+  DEFAULT_ERROR_MESSAGE: 'Something went wrong',
+  HEALTH_MESSAGE: 'Player Service is healthy 💪',
 };
 
 export const SERVER_MESSAGES = {
