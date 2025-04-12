@@ -4,7 +4,7 @@ export interface ILogPublisher {
   publish(logData: {
     playerId: string;
     logData: string;
-    logType?: string;
+    logType?: 'info' | 'error' | 'crash' | 'critical';
   }): Promise<void>;
 }
 
