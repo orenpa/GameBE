@@ -1,6 +1,6 @@
 export const CONTAINER_SERVICES = {
   KAFKA_PRODUCER: 'kafkaProducer',
-  REDIS_BATCH_SERVICE: 'redisBatchService',
+  LOG_BATCH_SERVICE: 'logBatchService',
 };
 
 export const CONTAINER_ERRORS = {

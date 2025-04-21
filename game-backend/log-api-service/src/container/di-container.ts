@@ -1,6 +1,6 @@
 import { KafkaProducer } from '../producers/kafka.producer';
-import { RedisBatchService } from '../services/redis-batch.service';
-import { IKafkaProducer, IRedisBatchService } from '../interfaces/service.interfaces';
+import { LogBatchService } from '../services/log-batch.service';
+import { IKafkaProducer, ILogBatchService } from '../interfaces/service.interfaces';
 import { CONTAINER_SERVICES, CONTAINER_ERRORS } from '../constants/container.constants';
 
 class DIContainer {
@@ -10,7 +10,7 @@ class DIContainer {
     // Register default implementations
     this.register(CONTAINER_SERVICES.KAFKA_PRODUCER, new KafkaProducer());
     
-    this.register(CONTAINER_SERVICES.REDIS_BATCH_SERVICE, new RedisBatchService(
+    this.register(CONTAINER_SERVICES.LOG_BATCH_SERVICE, new LogBatchService(
       this.get<IKafkaProducer>(CONTAINER_SERVICES.KAFKA_PRODUCER)
     ));
   }

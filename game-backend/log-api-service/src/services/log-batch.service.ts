@@ -5,7 +5,7 @@ import { LOG_TYPES, LOG_KEYWORDS } from '../constants/log.constants';
 import { REDIS_KEYS, BATCH_SCORES, BATCH_TIMES, REDIS_MESSAGES } from '../constants/redis.constants';
 import { RedisLock } from '../utils/redisLock';
 import { hostname } from 'os';
-import { IKafkaProducer, IRedisBatchService, LogEntry } from '../interfaces/service.interfaces';
+import { IKafkaProducer, ILogBatchService, LogEntry } from '../interfaces/service.interfaces';
 
 // Generate a unique worker ID for this instance
 const WORKER_ID = `${hostname()}-${process.pid}-${Date.now()}`;
@@ -23,28 +23,41 @@ interface ScoredLog {
  * 3. Prevention of starvation for lower priority logs
  * 4. Distributed worker coordination via Redis locks
  */
-export class RedisBatchService implements IRedisBatchService {
+export class LogBatchService implements ILogBatchService {
   private readonly kafkaProducer: IKafkaProducer;
   private readonly queueKey = REDIS_KEYS.LOGS_QUEUE;
   private readonly batchSize: number;
   private readonly flushIntervalMs: number;
-  private flushTimer: NodeJS.Timeout;
+  private flushTimeout: NodeJS.Timeout | null = null;
   private isProcessing: boolean = false;
   private lastProcessTime: number = Date.now();
+  private isShuttingDown: boolean = false;
 
   constructor(kafkaProducer: IKafkaProducer = new KafkaProducer()) {
     this.kafkaProducer = kafkaProducer;
     this.batchSize = env.logBatchSize;
     this.flushIntervalMs = env.logBatchTimeoutMs;
     
-    // Start periodic flushing
-    this.flushTimer = setInterval(() => this.flush(), this.flushIntervalMs);
-    
-    // Handle graceful shutdown
-    process.on('SIGINT', this.shutdown.bind(this));
-    process.on('SIGTERM', this.shutdown.bind(this));
+    // Schedule the first flush
+    this.scheduleNextFlush();
     
     console.log(`🆔 Worker initialized with ID: ${WORKER_ID}`);
+  }
+
+  /**
+   * Schedule the next flush operation using setTimeout instead of setInterval
+   * This gives better control over async flow and prevents overlapping executions
+   */
+  private scheduleNextFlush(): void {
+    if (this.isShuttingDown) return;
+    
+    this.flushTimeout = setTimeout(async () => {
+      await this.flush();
+      // Only schedule next flush if we're not shutting down
+      if (!this.isShuttingDown) {
+        this.scheduleNextFlush();
+      }
+    }, this.flushIntervalMs);
   }
 
   /**
@@ -194,7 +207,11 @@ export class RedisBatchService implements IRedisBatchService {
    */
   public async shutdown(): Promise<void> {
     console.log(REDIS_MESSAGES.SHUTDOWN.STARTED(WORKER_ID));
-    clearInterval(this.flushTimer);
+    this.isShuttingDown = true;
+    
+    if (this.flushTimeout) {
+      clearTimeout(this.flushTimeout);
+    }
     
     // Final flush of all logs with lock
     const lock = new RedisLock(REDIS_KEYS.SHUTDOWN_LOCK, BATCH_TIMES.SHUTDOWN_LOCK_TIMEOUT);

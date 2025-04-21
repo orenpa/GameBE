@@ -13,7 +13,7 @@ export interface IRedisLock {
   release(): Promise<void>;
 }
 
-export interface IRedisBatchService {
+export interface ILogBatchService {
   addLog(log: LogEntry): Promise<void>;
   shutdown(): Promise<void>;
 } 

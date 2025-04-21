@@ -1,10 +1,10 @@
 import { KafkaProducer } from '../producers/kafka.producer';
-import { RedisBatchService } from '../services/redis-batch.service';
-import { IKafkaProducer, IRedisBatchService } from '../interfaces/service.interfaces';
+import { LogBatchService } from '../services/log-batch.service';
+import { IKafkaProducer, ILogBatchService } from '../interfaces/service.interfaces';
 
 export interface IServiceFactory {
   createKafkaProducer(): IKafkaProducer;
-  createRedisBatchService(): IRedisBatchService;
+  createLogBatchService(): ILogBatchService;
 }
 
 export class ServiceFactory implements IServiceFactory {
@@ -12,9 +12,9 @@ export class ServiceFactory implements IServiceFactory {
     return new KafkaProducer();
   }
 
-  createRedisBatchService(): IRedisBatchService {
+  createLogBatchService(): ILogBatchService {
     const kafkaProducer = this.createKafkaProducer();
-    return new RedisBatchService(kafkaProducer);
+    return new LogBatchService(kafkaProducer);
   }
 }
 

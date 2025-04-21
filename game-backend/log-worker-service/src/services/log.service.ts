@@ -11,9 +11,10 @@ export class LogService implements ILogService {
   private buffer: LogData[] = [];
   private readonly batchSize = LOG_CONFIG.SERVICE.BATCH_SIZE;
   private readonly flushInterval = LOG_CONFIG.SERVICE.FLUSH_INTERVAL;
-  private flushTimer: NodeJS.Timeout;
+  private flushTimeout: NodeJS.Timeout | null = null;
   private readonly kafkaProducer: IKafkaProducer;
   private readonly rateLimiter: IRateLimiter;
+  private isShuttingDown: boolean = false;
 
   constructor(
     kafkaProducer: IKafkaProducer = new KafkaProducer(),
@@ -25,8 +26,25 @@ export class LogService implements ILogService {
   ) {
     this.kafkaProducer = kafkaProducer;
     this.rateLimiter = rateLimiter;
-    this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
     this.kafkaProducer.connect();
+    this.scheduleNextFlush();
+  }
+
+  /**
+   * Schedule the next flush operation using setTimeout
+   * This is more efficient than setInterval as it ensures operations don't overlap
+   * and can adapt timing based on previous operation duration
+   */
+  private scheduleNextFlush(): void {
+    if (this.isShuttingDown) return;
+    
+    this.flushTimeout = setTimeout(async () => {
+      await this.flush();
+      // Schedule next flush only if not shutting down
+      if (!this.isShuttingDown) {
+        this.scheduleNextFlush();
+      }
+    }, this.flushInterval);
   }
 
   async saveLog(log: LogData): Promise<void> {
@@ -74,8 +92,16 @@ export class LogService implements ILogService {
   }
 
   async shutdown(): Promise<void> {
-    clearInterval(this.flushTimer);
+    this.isShuttingDown = true;
+    
+    if (this.flushTimeout) {
+      clearTimeout(this.flushTimeout);
+    }
+    
+    // Ensure final flush of any remaining logs
     await this.flush();
+    
+    // Disconnect from Kafka after all logs have been processed
     await this.kafkaProducer.disconnect();
   }
 }
