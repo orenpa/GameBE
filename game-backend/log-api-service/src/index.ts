@@ -3,6 +3,10 @@ import { env } from './config/env';
 import redis from './config/redis';
 import { SERVER_MESSAGES } from './constants/general.constants';
 import { ERROR_MESSAGES } from './constants/error.constants';
+import { serviceFactory } from './factories/service.factory';
+
+// Get the log batch service instance
+const logBatchService = serviceFactory.createLogBatchService();
 
 const startServer = async () => {
   try {
@@ -18,7 +22,13 @@ const startServer = async () => {
 // Graceful shutdown
 const shutdown = async () => {
   console.log(SERVER_MESSAGES.SHUTTING_DOWN);
+  
+  // Shutdown the log batch service first to ensure logs are flushed
+  await logBatchService.shutdown();
+  
+  // Disconnect from Redis
   await redis.disconnect();
+  
   console.log(SERVER_MESSAGES.SHUTDOWN_COMPLETE);
   process.exit(0);
 };

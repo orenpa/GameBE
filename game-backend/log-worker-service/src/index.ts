@@ -27,10 +27,17 @@ const startWorker = async () => {
 // Graceful shutdown
 const shutdown = async () => {
   console.log(SYSTEM_MESSAGES.SHUTDOWN.STARTED);
+  
+  // Disconnect Kafka consumer first to stop receiving messages
   await consumer.disconnect?.();
+  
+  // Then shut down the log service which also disconnects its Kafka producer
   await logService.shutdown();
+  
+  // Finally disconnect from other services
   await mongoose.disconnect();
   await redis.disconnect();
+  
   console.log(SYSTEM_MESSAGES.SHUTDOWN.COMPLETE);
   process.exit(0);
 };

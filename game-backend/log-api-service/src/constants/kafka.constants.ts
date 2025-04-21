@@ -6,6 +6,10 @@ export const KAFKA_CONFIG = {
 export const KAFKA_MESSAGES = {
   SEND_SUCCESS: 'Log sent to Kafka successfully',
   SEND_FAILED: 'Failed to send log to Kafka',
+  DISCONNECT_SUCCESS: 'Kafka producer disconnected successfully',
+  DISCONNECT_FAILED: 'Failed to disconnect Kafka producer',
+  BATCH_SEND_SUCCESS: (count: number) => `Batch of ${count} logs sent to Kafka successfully`,
+  BATCH_SEND_FAILED: 'Failed to send log batch to Kafka',
 };
 
 export const KAFKA_TOPICS = {

@@ -57,6 +57,7 @@ export const REDIS_KEYS = {
   MONGODB: {
     WRITES: 'mongodb-writes',
   },
+  PENDING_LOGS: 'pending-logs',
 };
 
 export const REDIS_PREFIXES = {
