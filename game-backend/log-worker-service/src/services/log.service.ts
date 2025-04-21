@@ -6,6 +6,7 @@ import { LOG_MESSAGES, LOG_CONFIG } from '../constants/log.constants';
 import { REDIS_KEYS } from '../constants/redis.constants';
 import { ILogService, IRateLimiter, IKafkaProducer, LogData } from '../interfaces/service.interfaces';
 import { KafkaProducer } from '../producers/kafka.producer';
+import redis from '../config/redis';
 
 export class LogService implements ILogService {
   private buffer: LogData[] = [];
@@ -27,7 +28,57 @@ export class LogService implements ILogService {
     this.kafkaProducer = kafkaProducer;
     this.rateLimiter = rateLimiter;
     this.kafkaProducer.connect();
+    
+    // Check for any pending logs from previous shutdowns
+    this.checkPendingLogs().catch(err => console.error('Error loading pending logs:', err));
+    
     this.scheduleNextFlush();
+  }
+
+  /**
+   * Check for and load any pending logs saved during previous shutdowns
+   */
+  private async checkPendingLogs(): Promise<void> {
+    try {
+      // Get all pending logs
+      const pendingLogCount = await redis.lLen(REDIS_KEYS.PENDING_LOGS);
+      
+      if (pendingLogCount > 0) {
+        console.log(`Found ${pendingLogCount} pending logs from previous shutdown`);
+        
+        // Process logs in batches to avoid memory issues
+        const batchSize = this.batchSize;
+        let processed = 0;
+        
+        while (processed < pendingLogCount) {
+          // Get a batch of logs using LPOP (left pop - FIFO order)
+          const logs = await redis.lPopCount(REDIS_KEYS.PENDING_LOGS, Math.min(batchSize, pendingLogCount - processed));
+          
+          if (!logs || logs.length === 0) break;
+          
+          // Parse logs and add to buffer
+          for (const logStr of logs) {
+            try {
+              const log = JSON.parse(logStr);
+              this.buffer.push(log);
+            } catch (e) {
+              console.error('Failed to parse pending log:', e);
+            }
+          }
+          
+          processed += logs.length;
+          
+          // If buffer reaches batch size, flush it
+          if (this.buffer.length >= this.batchSize) {
+            await this.flush();
+          }
+        }
+        
+        console.log(`Loaded ${processed} pending logs from Redis`);
+      }
+    } catch (error) {
+      console.error('Error checking pending logs:', error);
+    }
   }
 
   /**
@@ -98,10 +149,28 @@ export class LogService implements ILogService {
       clearTimeout(this.flushTimeout);
     }
     
-    // Ensure final flush of any remaining logs
-    await this.flush();
-    
-    // Disconnect from Kafka after all logs have been processed
+    // Disconnect from Kafka immediately - no more processing
     await this.kafkaProducer.disconnect();
+    
+    // Save any in-memory messages to Redis for later processing
+    if (this.buffer.length > 0) {
+      try {
+        // Use multi and exec for transaction
+        const multi = redis.multi();
+        
+        // Save each log to a Redis list for later processing by this or other workers
+        for (const log of this.buffer) {
+          multi.rPush(REDIS_KEYS.PENDING_LOGS, JSON.stringify(log));
+        }
+        
+        await multi.exec();
+        console.log(LOG_MESSAGES.SERVICE.SAVED_TO_REDIS(this.buffer.length));
+        
+        // Clear the buffer after saving to Redis
+        this.buffer = [];
+      } catch (error) {
+        console.error(LOG_MESSAGES.SERVICE.REDIS_SAVE_ERROR, error);
+      }
+    }
   }
 }

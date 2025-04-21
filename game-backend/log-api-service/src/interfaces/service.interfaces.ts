@@ -6,6 +6,8 @@ export interface LogEntry {
 
 export interface IKafkaProducer {
   sendLogToTopic(topic: string, log: LogEntry): Promise<void>;
+  sendLogBatchToTopic(topic: string, logs: LogEntry[]): Promise<void>;
+  disconnect(): Promise<void>;
 }
 
 export interface IRedisLock {

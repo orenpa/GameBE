@@ -21,6 +21,8 @@ export const LOG_MESSAGES = {
     FLUSH_ERROR: '❌ Failed to flush batch. Sending to retry queue.',
     RETRY_SENT: (count: number) => `✅ Sent ${count} logs to retry queue`,
     RETRY_ERROR: '❌ Failed to send logs to retry topic:',
+    SAVED_TO_REDIS: (count: number) => `✅ Saved ${count} pending logs to Redis during shutdown`,
+    REDIS_SAVE_ERROR: '❌ Failed to save pending logs to Redis:',
   },
 };
 

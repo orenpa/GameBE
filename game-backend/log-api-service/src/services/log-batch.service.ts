@@ -191,12 +191,11 @@ export class LogBatchService implements ILogBatchService {
         }
       }
       
-      // Send logs to Kafka
-      for (const log of logs) {
-        await this.kafkaProducer.sendLogToTopic(kafkaTopic, log);
+      // Send logs to Kafka as a batch instead of one by one
+      if (logs.length > 0) {
+        await this.kafkaProducer.sendLogBatchToTopic(kafkaTopic, logs);
+        console.log(REDIS_MESSAGES.BATCH.SENT_LOGS(WORKER_ID, logs.length, kafkaTopic));
       }
-      
-      console.log(REDIS_MESSAGES.BATCH.SENT_LOGS(WORKER_ID, logs.length, kafkaTopic));
     } catch (error) {
       console.error(REDIS_MESSAGES.BATCH.PROCESSING_ERROR, error);
     }
@@ -213,19 +212,11 @@ export class LogBatchService implements ILogBatchService {
       clearTimeout(this.flushTimeout);
     }
     
-    // Final flush of all logs with lock
-    const lock = new RedisLock(REDIS_KEYS.SHUTDOWN_LOCK, BATCH_TIMES.SHUTDOWN_LOCK_TIMEOUT);
-    const acquired = await lock.acquire();
+    // Disconnect Kafka immediately to stop receiving new messages
+    await this.kafkaProducer.disconnect();
     
-    if (acquired) {
-      try {
-        await this.processBatch(env.kafkaHighPriorityTopic);
-        await this.processBatch(env.kafkaLowPriorityTopic);
-      } finally {
-        await lock.release();
-      }
-    }
-    
+    // Store any remaining logs in Redis (they'll be processed by other workers)
+    // No need to send to Kafka since we've disconnected
     console.log(REDIS_MESSAGES.SHUTDOWN.COMPLETE(WORKER_ID));
   }
 } 
